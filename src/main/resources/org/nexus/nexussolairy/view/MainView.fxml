@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import org.fxmisc.richtext.CodeArea?>
+<?import org.fxmisc.richtext.StyleClassedTextArea?>
+
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+<StackPane fx:id="mainRootContainer" styleClass="root-container"
+           xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="org.nexus.nexussolairy.controller.MainController">
+
+    <BorderPane fx:id="ideLayout" styleClass="ide-layout">
+        <top>
+            <VBox>
+                <!-- menu de opciones -->
+                <MenuBar fx:id="mainMenuBar" styleClass="main-menu-bar">
+                    <menus>
+                        <!-- opciones de archivos -->
+                        <Menu text="File">
+                            <MenuItem text="New Project..." onAction="#handleNewProject"/>
+                            <MenuItem text="Open Project..." onAction="#handleOpenProject"/>
+                            <MenuItem text="Open File..." onAction="#handleOpenFile"/>
+                            <SeparatorMenuItem/>
+                            <MenuItem text="Save" accelerator="Shortcut+S" onAction="#handleSave"/>
+                            <SeparatorMenuItem/>
+                            <MenuItem text="Exit" onAction="#handleExit"/>
+                        </Menu>
+
+                        <!-- opciones para vista de herramientas -->
+                        <Menu text="View">
+                            <MenuItem text="Project Explorer" onAction="#handleToggleExplorer"/>
+                            <SeparatorMenuItem/>
+                            <MenuItem text="Terminal" onAction="#handleSelectTerminal"/>
+                            <MenuItem text="Problems" onAction="#handleSelectProblems"/>
+                            <MenuItem text="AST" onAction="#handleSelectAst"/>
+                            <MenuItem text="Symbol Table" onAction="#handleSelectSymbols"/>
+                            <MenuItem text="Lexer" onAction="#handleSelectLexer"/>
+                            <MenuItem text="Syntax Errors" onAction="#handleSelectSyntax"/>
+                            <MenuItem text="Semantic Errors" onAction="#handleSelectSemantic"/>
+                            <MenuItem text="Three Address Code (C3D)" onAction="#handleSelectC3D"/>
+                            <MenuItem text="Quadruples" onAction="#handleSelectQuadruples"/>
+                            <MenuItem text="Parser Stack" onAction="#handleSelectStack"/>
+                            <MenuItem text="Heap Memory" onAction="#handleSelectHeap"/>
+                        </Menu>
+
+                        <!-- ejecucion de codigo -->
+                        <Menu text="Run">
+                            <MenuItem text="Run Project" accelerator="F5" onAction="#handleRunProject"/>
+                            <MenuItem text="Run File" onAction="#handleRunActiveFile"/>
+                        </Menu>
+
+                        <!-- herramientas -->
+                        <Menu text="Tools">
+                            <MenuItem text="Run Lexical Analysis" onAction="#handleRunLexer"/>
+                            <MenuItem text="Run Syntax Analysis" onAction="#handleRunParser"/>
+                        </Menu>
+
+                        <!-- ayuda y documentacion -->
+                        <Menu text="Help">
+                            <MenuItem text="Welcome Screen" onAction="#handleShowWelcome"/>
+                            <MenuItem text="Documentation" onAction="#handleShowDocumentation"/>
+                        </Menu>
+                    </menus>
+                </MenuBar>
+
+                <HBox alignment="CENTER_LEFT" spacing="8" styleClass="main-toolbar">
+                    <padding>
+                        <Insets top="4" right="12" bottom="4" left="12"/>
+                    </padding>
+                    <!-- menu central de opciones -->
+                    <Button text="New" styleClass="btn, btn-sm, btn-default" onAction="#handleNewProject"/>
+                    <Button text="Open" styleClass="btn, btn-sm, btn-default" onAction="#handleOpenProject"/>
+                    <Button text="Save" styleClass="btn, btn-sm, btn-default" onAction="#handleSave"/>
+
+                    <Separator orientation="VERTICAL"/>
+
+                    <!-- ejecucion -->
+                    <Button text="▶ Run" styleClass="btn, btn-sm, btn-accent-cyan" onAction="#handleRunProject"/>
+
+                    <Separator orientation="VERTICAL"/>
+
+                    <!-- analisis, esto aun esta como temporal -->
+                    <Button text="Analyze" styleClass="btn, btn-sm, btn-default" onAction="#handleAnalyze"/>
+                    <Button text="C3D" styleClass="btn, btn-sm, btn-default" onAction="#handleSelectC3D"/>
+
+                    <Region HBox.hgrow="ALWAYS"/>
+
+                    <!-- busqueda para el ide -->
+                    <Button text="Search(Ctrl+Shift+P)" styleClass="btn, btn-sm, toolbar-search-btn" onAction="#handleSearchEverywhere"/>
+                </HBox>
+            </VBox>
+        </top>
+
+        <center>
+            <SplitPane fx:id="mainHorizontalSplit" orientation="HORIZONTAL" dividerPositions="0.20">
+                <items>
+                    <!-- panel de exploracion de documentos -->
+                    <VBox fx:id="explorerContainer" styleClass="project-explorer-container" minWidth="200" prefWidth="200" maxWidth="400">
+                        <HBox alignment="CENTER_LEFT" spacing="6" styleClass="explorer-header-bar">
+                            <padding>
+                                <Insets top="6" right="8" bottom="6" left="10"/>
+                            </padding>
+                            <Label text="◧" styleClass="explorer-section-icon"/>
+                            <Label fx:id="projectRootLabel" text="NEXUS SOLAIRY EXPLORER" styleClass="explorer-header-title" HBox.hgrow="ALWAYS"/>
+                            <Button text="" styleClass="btn, btn-sm, explorer-icon-btn" onAction="#handleRefreshTree">
+                                <graphic>
+                                    <FontIcon iconLiteral="fth-refresh-ccw"/>
+                                </graphic>
+                            </Button>
+                            <Button text="" styleClass="btn, btn-sm, explorer-icon-btn" onAction="#handleToggleExplorer">
+                                <graphic>
+                                    <FontIcon iconLiteral="fth-sidebar"/>
+                                </graphic>
+                            </Button>
+                        </HBox>
+                        <TreeView fx:id="projectTree" styleClass="project-tree-view" showRoot="true" VBox.vgrow="ALWAYS"/>
+                    </VBox>
+
+                    <SplitPane fx:id="centerVerticalSplit" orientation="VERTICAL" dividerPositions="0.62">
+                        <items>
+                            <StackPane fx:id="editorContainer" styleClass="editor-container">
+                                <Label fx:id="emptyEditorLabel" text="No open files&#10;Create a new file or open an existing file from the Project Explorer"
+                                       styleClass="empty-state-label" alignment="CENTER"/>
+                                <TabPane fx:id="editorTabPane" styleClass="editor-tab-pane" tabClosingPolicy="ALL_TABS"/>
+                            </StackPane>
+
+                            <TabPane fx:id="bottomTabPane" styleClass="bottom-panel" tabClosingPolicy="UNAVAILABLE">
+                                <tabs>
+                                    <Tab fx:id="terminalTab" text="TERMINAL">
+                                        <VBox styleClass="terminal-container">
+                                            <HBox alignment="CENTER_LEFT" spacing="8" styleClass="terminal-toolbar">
+                                                <padding>
+                                                    <Insets top="4" right="10" bottom="4" left="10"/>
+                                                </padding>
+                                                <HBox fx:id="terminalSessionBar" alignment="CENTER_LEFT" spacing="6" HBox.hgrow="ALWAYS"/>
+                                                <Label fx:id="terminalStatusBadge" text="READY" styleClass="badge, badge-info"/>
+                                                <Button text="Clear" styleClass="btn, btn-sm, btn-default" onAction="#handleClearTerminal"/>
+                                                <Button text="+ New" styleClass="btn, btn-sm, btn-default" onAction="#handleNewTerminalSession"/>
+                                            </HBox>
+                                            <StyleClassedTextArea fx:id="terminalOutput" styleClass="terminal-output" editable="false" wrapText="true" VBox.vgrow="ALWAYS"/>
+                                        </VBox>
+                                    </Tab>
+
+                                    <Tab fx:id="problemsTab" text="PROBLEMS">
+                                        <VBox styleClass="problems-container">
+                                            <HBox alignment="CENTER_LEFT" spacing="8" styleClass="tab-toolbar">
+                                                <padding>
+                                                    <Insets top="4" right="10" bottom="4" left="10"/>
+                                                </padding>
+                                                <ToggleButton fx:id="problemsAllBtn" text="All (0)" styleClass="btn, btn-sm, btn-default" selected="true"/>
+                                                <ToggleButton fx:id="problemsErrBtn" text="Errors (0)" styleClass="btn, btn-sm, btn-default"/>
+                                                <ToggleButton fx:id="problemsWarnBtn" text="Warnings (0)" styleClass="btn, btn-sm, btn-default"/>
+                                                <ToggleButton fx:id="problemsInfoBtn" text="Info (0)" styleClass="btn, btn-sm, btn-default"/>
+                                            </HBox>
+                                            <TableView fx:id="problemsTable" styleClass="table" VBox.vgrow="ALWAYS">
+                                                <columns>
+                                                    <TableColumn fx:id="colProbSeverity" text="Severity" prefWidth="100"/>
+                                                    <TableColumn fx:id="colProbFile" text="File" prefWidth="120"/>
+                                                    <TableColumn fx:id="colProbLine" text="Line" prefWidth="65"/>
+                                                    <TableColumn fx:id="colProbCol" text="Column" prefWidth="65"/>
+                                                    <TableColumn fx:id="colProbMsg" text="Message" prefWidth="480"/>
+                                                </columns>
+                                            </TableView>
+                                        </VBox>
+                                    </Tab>
+
+                                    <Tab fx:id="astTab" text="AST">
+                                        <BorderPane styleClass="ast-container">
+                                            <top>
+                                                <HBox alignment="CENTER_LEFT" spacing="8" styleClass="tab-toolbar">
+                                                    <padding>
+                                                        <Insets top="4" right="10" bottom="4" left="10"/>
+                                                    </padding>
+                                                    <Button text="Generate AST" styleClass="btn, btn-sm, btn-accent-cyan" onAction="#handleGenerateAst"/>
+                                                    <Button text="Clear" styleClass="btn, btn-sm, btn-default" onAction="#handleClearAst"/>
+                                                    <Button text="+ Zoom In" styleClass="btn, btn-sm, btn-default" onAction="#handleZoomInAst"/>
+                                                    <Button text="- Zoom Out" styleClass="btn, btn-sm, btn-default" onAction="#handleZoomOutAst"/>
+                                                    <Button text="Reset Zoom" styleClass="btn, btn-sm, btn-default" onAction="#handleResetZoomAst"/>
+                                                    <Separator orientation="VERTICAL"/>
+                                                    <Label fx:id="astInspectorLabel" text="No node selected" styleClass="ast-inspector-label" HBox.hgrow="ALWAYS"/>
+                                                </HBox>
+                                            </top>
+                                            <center>
+                                                <StackPane>
+                                                    <ScrollPane fx:id="astScrollPane" styleClass="ast-scroll-pane" pannable="true">
+                                                        <content>
+                                                            <Pane fx:id="astCanvasPane" styleClass="ast-graph-view" prefWidth="1800" prefHeight="1000"/>
+                                                        </content>
+                                                    </ScrollPane>
+                                                    <Label fx:id="astEmptyLabel" text="AST not generated&#10;Run syntax analysis to generate the AST." styleClass="empty-state-label" alignment="CENTER"/>
+                                                </StackPane>
+                                            </center>
+                                        </BorderPane>
+                                    </Tab>
+
+                                    <Tab fx:id="symbolsTab" text="SYMBOLS">
+                                        <VBox styleClass="symbol-table-container">
+                                            <HBox alignment="CENTER_LEFT" spacing="8" styleClass="tab-toolbar">
+                                                <padding>
+                                                    <Insets top="4" right="10" bottom="4" left="10"/>
+                                                </padding>
+                                                <TextField fx:id="symbolsSearchField" promptText="Filter symbols by name or scope..." styleClass="table-search-field" prefWidth="250"/>
+                                                <Label fx:id="symbolsCountBadge" text="Total: 0" styleClass="badge, badge-info"/>
+                                            </HBox>
+                                            <TableView fx:id="symbolsTable" styleClass="table" VBox.vgrow="ALWAYS">
+                                                <columns>
+                                                    <TableColumn fx:id="colSymName" text="Name" prefWidth="140"/>
+                                                    <TableColumn fx:id="colSymType" text="Data Type" prefWidth="120"/>
+                                                    <TableColumn fx:id="colSymKind" text="Symbol Kind" prefWidth="130"/>
+                                                    <TableColumn fx:id="colSymScope" text="Scope" prefWidth="100"/>
+                                                    <TableColumn fx:id="colSymValue" text="Value" prefWidth="130"/>
+                                                    <TableColumn fx:id="colSymLine" text="Line" prefWidth="65"/>
+                                                    <TableColumn fx:id="colSymCol" text="Column" prefWidth="65"/>
+                                                </columns>
+                                            </TableView>
+                                        </VBox>
+                                    </Tab>
+
+                                    <Tab fx:id="lexerTab" text="LEXER">
+                                        <TabPane styleClass="sub-tab-pane" tabClosingPolicy="UNAVAILABLE">
+                                            <tabs>
+                                                <Tab text="Tokens">
+                                                    <VBox>
+                                                        <HBox alignment="CENTER_LEFT" spacing="8" styleClass="tab-toolbar">
+                                                            <padding>
+                                                                <Insets top="4" right="10" bottom="4" left="10"/>
+                                                            </padding>
+                                                            <TextField fx:id="tokensSearchField" promptText="Filter tokens..." styleClass="table-search-field" prefWidth="220"/>
+                                                            <Label fx:id="tokensCountBadge" text="Tokens: 0" styleClass="badge, badge-info"/>
+                                                        </HBox>
+                                                        <TableView fx:id="tokensTable" styleClass="table" VBox.vgrow="ALWAYS">
+                                                            <columns>
+                                                                <TableColumn fx:id="colTokToken" text="Token" prefWidth="180"/>
+                                                                <TableColumn fx:id="colTokLexeme" text="Lexeme" prefWidth="220"/>
+                                                                <TableColumn fx:id="colTokLine" text="Line" prefWidth="70"/>
+                                                                <TableColumn fx:id="colTokCol" text="Column" prefWidth="70"/>
+                                                            </columns>
+                                                        </TableView>
+                                                    </VBox>
+                                                </Tab>
+                                                <Tab text="Lexical Errors">
+                                                    <TableView fx:id="lexerErrorsTable" styleClass="table">
+                                                        <columns>
+                                                            <TableColumn fx:id="colLexErrLine" text="Line" prefWidth="70"/>
+                                                            <TableColumn fx:id="colLexErrCol" text="Column" prefWidth="70"/>
+                                                            <TableColumn fx:id="colLexErrMsg" text="Message" prefWidth="480"/>
+                                                        </columns>
+                                                    </TableView>
+                                                </Tab>
+                                            </tabs>
+                                        </TabPane>
+                                    </Tab>
+
+                                    <Tab fx:id="syntaxTab" text="SYNTAX">
+                                        <TableView fx:id="syntaxTable" styleClass="table">
+                                            <columns>
+                                                <TableColumn fx:id="colSynSeverity" text="Severity" prefWidth="100"/>
+                                                <TableColumn fx:id="colSynLine" text="Line" prefWidth="75"/>
+                                                <TableColumn fx:id="colSynCol" text="Column" prefWidth="75"/>
+                                                <TableColumn fx:id="colSynMsg" text="Message" prefWidth="480"/>
+                                            </columns>
+                                        </TableView>
+                                    </Tab>
+
+                                    <Tab fx:id="semanticTab" text="SEMANTIC">
+                                        <TableView fx:id="semanticTable" styleClass="table">
+                                            <columns>
+                                                <TableColumn fx:id="colSemLine" text="Line" prefWidth="75"/>
+                                                <TableColumn fx:id="colSemCol" text="Column" prefWidth="75"/>
+                                                <TableColumn fx:id="colSemType" text="Type" prefWidth="160"/>
+                                                <TableColumn fx:id="colSemMsg" text="Message" prefWidth="480"/>
+                                            </columns>
+                                        </TableView>
+                                    </Tab>
+
+                                    <Tab fx:id="c3dTab" text="C3D">
+                                        <VBox styleClass="c3d-container">
+                                            <HBox alignment="CENTER_LEFT" spacing="8" styleClass="tab-toolbar">
+                                                <padding>
+                                                    <Insets top="4" right="10" bottom="4" left="10"/>
+                                                </padding>
+                                                <Label text="Intermediate Representation (Three Address Code)" styleClass="toolbar-section-title"/>
+                                                <Button text="Copy C3D" styleClass="btn, btn-sm, btn-default" onAction="#handleCopyC3D"/>
+                                                <Button text="Regenerate" styleClass="btn, btn-sm, btn-accent-purple" onAction="#handleRegenerateC3D"/>
+                                            </HBox>
+                                            <CodeArea fx:id="c3dCodeArea" styleClass="code-area" editable="false" VBox.vgrow="ALWAYS"/>
+                                        </VBox>
+                                    </Tab>
+
+                                    <Tab fx:id="quadruplesTab" text="QUADRUPLES">
+                                        <TableView fx:id="quadruplesTable" styleClass="table">
+                                            <columns>
+                                                <TableColumn fx:id="colQuadIndex" text="#" prefWidth="55"/>
+                                                <TableColumn fx:id="colQuadOp" text="Operator" prefWidth="120"/>
+                                                <TableColumn fx:id="colQuadArg1" text="Arg1" prefWidth="140"/>
+                                                <TableColumn fx:id="colQuadArg2" text="Arg2" prefWidth="140"/>
+                                                <TableColumn fx:id="colQuadRes" text="Result" prefWidth="140"/>
+                                            </columns>
+                                        </TableView>
+                                    </Tab>
+
+                                    <Tab fx:id="stackTab" text="STACK">
+                                        <VBox styleClass="parser-stack-view" spacing="6">
+                                            <padding>
+                                                <Insets top="8" right="8" bottom="8" left="8"/>
+                                            </padding>
+                                            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="sra-nav-bar">
+                                                <padding>
+                                                    <Insets top="6" right="12" bottom="6" left="12"/>
+                                                </padding>
+                                                <Button text="◀ Prev Step" styleClass="btn, btn-sm, sra-nav-btn" onAction="#handlePrevStackStep"/>
+                                                <Label fx:id="stackStepLabel" text="Step 0 of 0" styleClass="sra-step-label"/>
+                                                <Button text="Next Step ▶" styleClass="btn, btn-sm, sra-nav-btn" onAction="#handleNextStackStep"/>
+                                                <Button fx:id="stackAutoPlayBtn" text="▶ Auto Play" styleClass="btn, btn-sm, btn-accent-cyan" onAction="#handleToggleAutoPlay"/>
+                                                <Separator orientation="VERTICAL"/>
+                                                <Label fx:id="stackActionBadge" text="IDLE" styleClass="sra-action-badge"/>
+                                            </HBox>
+
+                                            <HBox spacing="12" VBox.vgrow="ALWAYS">
+                                                <VBox styleClass="sra-state-box" prefWidth="280" spacing="8">
+                                                    <padding>
+                                                        <Insets top="12" right="12" bottom="12" left="12"/>
+                                                    </padding>
+                                                    <Label text="Current Token:" styleClass="sra-section-title"/>
+                                                    <Label fx:id="stackCurrentTokenLabel" text="None" styleClass="sra-token-label"/>
+                                                    <Label text="Active Grammar Rule:" styleClass="sra-section-title"/>
+                                                    <Label fx:id="stackActiveRuleLabel" text="None" styleClass="sra-rule-label"/>
+                                                </VBox>
+
+                                                <VBox spacing="6" HBox.hgrow="ALWAYS">
+                                                    <Label text="Parser Visual Stack (Bottom -> Top):" styleClass="sra-section-title"/>
+                                                    <ScrollPane styleClass="sra-stack-scroll" fitToWidth="true" VBox.vgrow="ALWAYS">
+                                                        <content>
+                                                            <VBox fx:id="stackVisualContainer" styleClass="sra-stack-container" spacing="6">
+                                                                <padding>
+                                                                    <Insets top="10" right="10" bottom="10" left="10"/>
+                                                                </padding>
+                                                            </VBox>
+                                                        </content>
+                                                    </ScrollPane>
+                                                </VBox>
+
+                                                <VBox spacing="6" prefWidth="300">
+                                                    <Label text="Parser Action History:" styleClass="sra-section-title"/>
+                                                    <ListView fx:id="stackLogListView" styleClass="sra-log-list" VBox.vgrow="ALWAYS"/>
+                                                </VBox>
+                                            </HBox>
+                                        </VBox>
+                                    </Tab>
+
+                                    <Tab fx:id="heapTab" text="HEAP">
+                                        <VBox styleClass="heap-container">
+                                            <HBox alignment="CENTER_LEFT" spacing="8" styleClass="tab-toolbar">
+                                                <padding>
+                                                    <Insets top="4" right="10" bottom="4" left="10"/>
+                                                </padding>
+                                                <Label text="Heap Memory Inspector" styleClass="toolbar-section-title"/>
+                                                <Button text="Trigger GC" styleClass="btn, btn-sm, btn-default" onAction="#handleTriggerGC"/>
+                                            </HBox>
+                                            <TableView fx:id="heapTable" styleClass="table" VBox.vgrow="ALWAYS">
+                                                <columns>
+                                                    <TableColumn fx:id="colHeapAddr" text="Address" prefWidth="120"/>
+                                                    <TableColumn fx:id="colHeapType" text="Type" prefWidth="130"/>
+                                                    <TableColumn fx:id="colHeapVal" text="Value" prefWidth="180"/>
+                                                    <TableColumn fx:id="colHeapDetails" text="Object Details / References" prefWidth="360"/>
+                                                </columns>
+                                            </TableView>
+                                        </VBox>
+                                    </Tab>
+                                </tabs>
+                            </TabPane>
+                        </items>
+                    </SplitPane>
+                </items>
+            </SplitPane>
+        </center>
+
+        <bottom>
+            <HBox alignment="CENTER_LEFT" spacing="12" styleClass="panel-footer">
+                <padding>
+                    <Insets top="4" right="12" bottom="4" left="12"/>
+                </padding>
+                <Label fx:id="statusLabel" text="Ready"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="cursorLabel" text="Ln 1, Col 1"/>
+                <Label text="Spaces: 4" styleClass="footer-detail"/>
+                <Label fx:id="languageBadge" text="Pig Latin" styleClass="badge, badge-language"/>
+                <Label fx:id="tokensBadge" text="Tokens: 0" styleClass="badge, badge-info"/>
+                <Label fx:id="warningsBadge" text="Warnings: 0" styleClass="badge, badge-warning"/>
+                <Label fx:id="errorsBadge" text="Errors: 0" styleClass="badge, badge-success"/>
+            </HBox>
+        </bottom>
+    </BorderPane>
+</StackPane>
