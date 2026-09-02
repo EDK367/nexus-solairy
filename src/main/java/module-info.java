@@ -35,4 +35,5 @@ module org.nexus.nexussolairy {
     opens org.nexus.nexussolairy.model.view to javafx.base;
     exports org.nexus.nexussolairy.model.syntactic;
     opens org.nexus.nexussolairy.model.syntactic to javafx.base;
+    exports org.nexus.nexussolairy.service.ui;
 }

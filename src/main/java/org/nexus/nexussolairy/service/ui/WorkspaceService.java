@@ -1,4 +1,4 @@
-package org.nexus.nexussolairy.service;
+package org.nexus.nexussolairy.service.ui;
 
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;

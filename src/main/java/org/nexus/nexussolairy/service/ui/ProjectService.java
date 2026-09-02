@@ -1,4 +1,4 @@
-package org.nexus.nexussolairy.service;
+package org.nexus.nexussolairy.service.ui;
 
 import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.file.Project;

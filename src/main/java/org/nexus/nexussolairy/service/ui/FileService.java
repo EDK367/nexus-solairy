@@ -1,4 +1,4 @@
-package org.nexus.nexussolairy.service;
+package org.nexus.nexussolairy.service.ui;
 
 import java.io.File;
 import java.io.IOException;
