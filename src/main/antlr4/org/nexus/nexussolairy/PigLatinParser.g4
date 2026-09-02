@@ -13,7 +13,7 @@ importSection : importStmt+
               ;
 
 // importaciones
-importStmt : IMPORT path SEMI
+importStmt : IMPORT path
            ;
 
 // gramatica de prueba para verificar el path de las importaciones
@@ -33,6 +33,7 @@ mainSection : MAIOR GT statement* FINIS_PROG SEMI
 // DECLARACIONES
 // =======================================
 varDecl : ESTO ID COLON type expression? SEMI
+        | ESTO ID COLON NOVUS ID LPAREN argumentList? RPAREN SEMI
         | SERIES ID LBRACK expression RBRACK COLON type arrayInit? SEMI
         ;
 
@@ -160,7 +161,6 @@ primaryExpression : literal
                   | ID DOT ID LPAREN argumentList? RPAREN
                   | LPAREN expression RPAREN
                   | structLiteral
-                  | NOVUS ID LPAREN argumentList? RPAREN
                   ;
 
 argumentList : expression (COMMA expression)*

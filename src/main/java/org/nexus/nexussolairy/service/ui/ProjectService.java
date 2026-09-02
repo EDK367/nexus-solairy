@@ -72,19 +72,42 @@ public class ProjectService {
     public String getStarterCode(LanguageType language) {
         return switch (language) {
             case PIG_LATIN -> """
-                    VARIABILES>
+                    import estructuras.y
                     
+                    VARIABILES>
                     esto edad : numerus 20;
-                    esto nombre : textum "Carlos";
-                    esto activo : verum;
+                    esto gravedad : decimalis 9.81;
+                    esto activo : bool verum;
+                    series numeros[3]: numerus {1, 2, 3};
+                    esto p : Persona {"Ana", 25, {"Central", 100}};
                     
                     MAIOR>
+                    >> "Hola";
+                    esto nombre : textum;
+                    <<
+                    >> "Bienvenido" >> nombre;
                     
-                    >> "Hola comandante Nexu!";
-                    >> "Iniciando compilacion de Pig Latin...";
-                    >> nombre;
-                    >> edad;
+                    si (edad >= 18 && activo == verum) {
+                        >> "Mayor";
+                    } aliter {
+                        >> "Menor";
+                    } finis;
                     
+                    dum (edad < 25) {
+                        edad++;
+                    } finis;
+                    
+                    facere {
+                        edad--;
+                    } dum (edad > 0);
+                    
+                    per (esto i : numerus 0; i < 5; i++) {
+                        >> i;
+                    }
+                    
+                    esto obj : novus Persona(20, "Carlos");
+                    obj.nombre = "Yennifer";
+                    numeros[0] = 99;
                     FINIS;
                     """;
             case Y_LANG -> """
