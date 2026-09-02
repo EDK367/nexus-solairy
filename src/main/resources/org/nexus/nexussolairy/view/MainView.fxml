@@ -38,6 +38,7 @@
                             <MenuItem text="AST" onAction="#handleSelectAst"/>
                             <MenuItem text="Symbol Table" onAction="#handleSelectSymbols"/>
                             <MenuItem text="Lexer" onAction="#handleSelectLexer"/>
+                            <MenuItem text="Lexer errors" onAction="#handleSelectLexerError"/>
                             <MenuItem text="Syntax Errors" onAction="#handleSelectSyntax"/>
                             <MenuItem text="Semantic Errors" onAction="#handleSelectSemantic"/>
                             <MenuItem text="Three Address Code (C3D)" onAction="#handleSelectC3D"/>
@@ -219,8 +220,8 @@
                                         </VBox>
                                     </Tab>
 
-                                    <Tab fx:id="lexerTab" text="LEXER">
-                                        <TabPane styleClass="sub-tab-pane" tabClosingPolicy="UNAVAILABLE">
+                                    <Tab fx:id="LEXER_TAB" text="LEXER">
+                                        <TabPane fx:id="LEXER_SUB_TAB_PANE" styleClass="sub-tab-pane" tabClosingPolicy="UNAVAILABLE">
                                             <tabs>
                                                 <Tab text="Tokens">
                                                     <VBox>

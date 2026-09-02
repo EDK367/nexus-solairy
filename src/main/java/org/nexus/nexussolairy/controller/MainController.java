@@ -31,9 +31,12 @@ import org.nexus.nexussolairy.model.semantic.SemanticError;
 import org.nexus.nexussolairy.model.semantic.view.SymbolViewModel;
 import org.nexus.nexussolairy.model.syntactic.SyntaxError;
 import org.nexus.nexussolairy.model.view.*;
+import org.nexus.nexussolairy.patron.LexerFactory;
+import org.nexus.nexussolairy.service.grammar.LexerService;
 import org.nexus.nexussolairy.service.ui.FileService;
 import org.nexus.nexussolairy.service.ui.ProjectService;
 import org.nexus.nexussolairy.service.ui.WorkspaceService;
+import org.nexus.nexussolairy.utils.ResultLexer;
 import org.nexus.nexussolairy.view.*;
 import org.nexus.nexussolairy.view.utils.CommandItem;
 import org.nexus.nexussolairy.view.utils.CommandPaletteDialog;
@@ -46,75 +49,133 @@ import java.util.*;
 
 public class MainController implements Initializable {
 
-    @FXML private StackPane mainRootContainer;
-    @FXML private SplitPane mainHorizontalSplit;
-    @FXML private VBox explorerContainer;
-    @FXML private Label projectRootLabel;
-    @FXML private TreeView<File> projectTree;
-    @FXML private Label emptyEditorLabel;
-    @FXML private TabPane editorTabPane;
-    @FXML private TabPane bottomTabPane;
+    @FXML
+    private StackPane mainRootContainer;
+    @FXML
+    private SplitPane mainHorizontalSplit;
+    @FXML
+    private VBox explorerContainer;
+    @FXML
+    private Label projectRootLabel;
+    @FXML
+    private TreeView<File> projectTree;
+    @FXML
+    private Label emptyEditorLabel;
+    @FXML
+    private TabPane editorTabPane;
+    @FXML
+    private TabPane bottomTabPane;
 
-    @FXML private Tab terminalTab;
-    @FXML private HBox terminalSessionBar;
-    @FXML private Label terminalStatusBadge;
-    @FXML private StyleClassedTextArea terminalOutput;
+    @FXML
+    private Tab terminalTab;
+    @FXML
+    private HBox terminalSessionBar;
+    @FXML
+    private Label terminalStatusBadge;
+    @FXML
+    private StyleClassedTextArea terminalOutput;
 
-    @FXML private Tab problemsTab;
-    @FXML private ToggleButton problemsAllBtn, problemsErrBtn, problemsWarnBtn, problemsInfoBtn;
-    @FXML private TableView<ProblemViewModel> problemsTable;
-    @FXML private TableColumn<ProblemViewModel, String> colProbSeverity, colProbFile, colProbMsg;
-    @FXML private TableColumn<ProblemViewModel, Number> colProbLine, colProbCol;
+    @FXML
+    private Tab problemsTab;
+    @FXML
+    private ToggleButton problemsAllBtn, problemsErrBtn, problemsWarnBtn, problemsInfoBtn;
+    @FXML
+    private TableView<ProblemViewModel> problemsTable;
+    @FXML
+    private TableColumn<ProblemViewModel, String> colProbSeverity, colProbFile, colProbMsg;
+    @FXML
+    private TableColumn<ProblemViewModel, Number> colProbLine, colProbCol;
 
-    @FXML private Tab astTab;
-    @FXML private Label astInspectorLabel, astEmptyLabel;
-    @FXML private Pane astCanvasPane;
+    @FXML
+    private Tab astTab;
+    @FXML
+    private Label astInspectorLabel, astEmptyLabel;
+    @FXML
+    private Pane astCanvasPane;
 
-    @FXML private Tab symbolsTab;
-    @FXML private TextField symbolsSearchField;
-    @FXML private TableView<SymbolViewModel> symbolsTable;
-    @FXML private TableColumn<SymbolViewModel, String> colSymName, colSymType, colSymKind, colSymScope, colSymValue;
-    @FXML private TableColumn<SymbolViewModel, Number> colSymLine, colSymCol;
+    @FXML
+    private Tab symbolsTab;
+    @FXML
+    private TextField symbolsSearchField;
+    @FXML
+    private TableView<SymbolViewModel> symbolsTable;
+    @FXML
+    private TableColumn<SymbolViewModel, String> colSymName, colSymType, colSymKind, colSymScope, colSymValue;
+    @FXML
+    private TableColumn<SymbolViewModel, Number> colSymLine, colSymCol;
 
-    @FXML private Tab lexerTab;
-    @FXML private TextField tokensSearchField;
-    @FXML private TableView<TokenInfo> tokensTable;
-    @FXML private TableColumn<TokenInfo, String> colTokToken, colTokLexeme;
-    @FXML private TableColumn<TokenInfo, Number> colTokLine, colTokCol;
-    @FXML private TableView<LexerError> lexerErrorsTable;
-    @FXML private TableColumn<LexerError, Number> colLexErrLine, colLexErrCol;
-    @FXML private TableColumn<LexerError, String> colLexErrMsg;
+    @FXML
+    private Tab LEXER_TAB;
+    @FXML
+    private TabPane LEXER_SUB_TAB_PANE;
+    @FXML
+    private TextField tokensSearchField;
+    @FXML
+    private TableView<TokenInfo> tokensTable;
+    @FXML
+    private TableColumn<TokenInfo, String> colTokToken, colTokLexeme;
+    @FXML
+    private TableColumn<TokenInfo, Number> colTokLine, colTokCol;
+    @FXML
+    private TableView<LexerError> lexerErrorsTable;
+    @FXML
+    private TableColumn<LexerError, Number> colLexErrLine, colLexErrCol;
+    @FXML
+    private TableColumn<LexerError, String> colLexErrMsg;
 
-    @FXML private Tab syntaxTab;
-    @FXML private TableView<SyntaxError> syntaxTable;
-    @FXML private TableColumn<SyntaxError, String> colSynSeverity, colSynMsg;
-    @FXML private TableColumn<SyntaxError, Number> colSynLine, colSynCol;
+    @FXML
+    private Tab syntaxTab;
+    @FXML
+    private TableView<SyntaxError> syntaxTable;
+    @FXML
+    private TableColumn<SyntaxError, String> colSynSeverity, colSynMsg;
+    @FXML
+    private TableColumn<SyntaxError, Number> colSynLine, colSynCol;
 
-    @FXML private Tab semanticTab;
-    @FXML private TableView<SemanticError> semanticTable;
-    @FXML private TableColumn<SemanticError, String> colSemType, colSemMsg;
-    @FXML private TableColumn<SemanticError, Number> colSemLine, colSemCol;
+    @FXML
+    private Tab semanticTab;
+    @FXML
+    private TableView<SemanticError> semanticTable;
+    @FXML
+    private TableColumn<SemanticError, String> colSemType, colSemMsg;
+    @FXML
+    private TableColumn<SemanticError, Number> colSemLine, colSemCol;
 
-    @FXML private Tab c3dTab;
-    @FXML private CodeArea c3dCodeArea;
+    @FXML
+    private Tab c3dTab;
+    @FXML
+    private CodeArea c3dCodeArea;
 
-    @FXML private Tab quadruplesTab;
-    @FXML private TableView<QuadrupleViewModel> quadruplesTable;
-    @FXML private TableColumn<QuadrupleViewModel, Number> colQuadIndex;
-    @FXML private TableColumn<QuadrupleViewModel, String> colQuadOp, colQuadArg1, colQuadArg2, colQuadRes;
+    @FXML
+    private Tab quadruplesTab;
+    @FXML
+    private TableView<QuadrupleViewModel> quadruplesTable;
+    @FXML
+    private TableColumn<QuadrupleViewModel, Number> colQuadIndex;
+    @FXML
+    private TableColumn<QuadrupleViewModel, String> colQuadOp, colQuadArg1, colQuadArg2, colQuadRes;
 
-    @FXML private Tab stackTab;
-    @FXML private Label stackStepLabel, stackActionBadge, stackCurrentTokenLabel, stackActiveRuleLabel;
-    @FXML private Button stackAutoPlayBtn;
-    @FXML private VBox stackVisualContainer;
-    @FXML private ListView<String> stackLogListView;
+    @FXML
+    private Tab stackTab;
+    @FXML
+    private Label stackStepLabel, stackActionBadge, stackCurrentTokenLabel, stackActiveRuleLabel;
+    @FXML
+    private Button stackAutoPlayBtn;
+    @FXML
+    private VBox stackVisualContainer;
+    @FXML
+    private ListView<String> stackLogListView;
 
-    @FXML private Tab heapTab;
-    @FXML private TableView<HeapViewModel> heapTable;
-    @FXML private TableColumn<HeapViewModel, String> colHeapAddr, colHeapType, colHeapVal, colHeapDetails;
+    @FXML
+    private Tab heapTab;
+    @FXML
+    private TableView<HeapViewModel> heapTable;
+    @FXML
+    private TableColumn<HeapViewModel, String> colHeapAddr, colHeapType, colHeapVal, colHeapDetails;
 
 
-    @FXML private Label statusLabel, cursorLabel, languageBadge, tokensBadge, warningsBadge, errorsBadge;
+    @FXML
+    private Label statusLabel, cursorLabel, languageBadge, tokensBadge, warningsBadge, errorsBadge;
 
     private Stage stage;
     private FileService fileService;
@@ -372,6 +433,7 @@ public class MainController implements Initializable {
         colTokCol.setCellValueFactory(c -> c.getValue().columnProperty());
 
         tokensTable.setItems(filteredTokens);
+        tokensTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         tokensTable.setPlaceholder(new Label("No tokens generated"));
 
         colLexErrLine.setCellValueFactory(c -> c.getValue().lineProperty());
@@ -379,6 +441,7 @@ public class MainController implements Initializable {
         colLexErrMsg.setCellValueFactory(c -> c.getValue().messageProperty());
 
         lexerErrorsTable.setItems(lexerErrorsList);
+        lexerErrorsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         lexerErrorsTable.setPlaceholder(new Label("No lexical errors detected"));
     }
 
@@ -561,10 +624,7 @@ public class MainController implements Initializable {
         langIcon.setStyle("-fx-text-fill: " + model.getLanguageType().getColorHex() + "; -fx-font-weight: bold; -fx-font-size: 11px;");
 
         Label titleLabel = new Label();
-        titleLabel.textProperty().bind(Bindings.createStringBinding(
-                () -> (model.isDirty() ? "● " : "") + model.getTitle(),
-                model.dirtyProperty(), model.titleProperty()
-        ));
+        titleLabel.textProperty().bind(Bindings.createStringBinding(() -> (model.isDirty() ? "● " : "") + model.getTitle(), model.dirtyProperty(), model.titleProperty()));
         titleLabel.getStyleClass().add("editor-tab-title");
 
         header.getChildren().addAll(langIcon, titleLabel);
@@ -614,9 +674,17 @@ public class MainController implements Initializable {
         }
     }
 
-    private void appendTerminalInfo(String message) { appendTerminalLog("INFO", message); }
-    private void appendTerminalSuccess(String message) { appendTerminalLog("SUCCESS", message); }
-    private void appendTerminalError(String message) { appendTerminalLog("ERROR", message); }
+    private void appendTerminalInfo(String message) {
+        appendTerminalLog("INFO", message);
+    }
+
+    private void appendTerminalSuccess(String message) {
+        appendTerminalLog("SUCCESS", message);
+    }
+
+    private void appendTerminalError(String message) {
+        appendTerminalLog("ERROR", message);
+    }
 
     private void appendTerminalLog(String type, String message) {
         int start = terminalOutput.getLength();
@@ -680,8 +748,7 @@ public class MainController implements Initializable {
         box.setOnMouseClicked(e -> {
             selectedAstNode = node;
             int childCount = node.getChildren() != null ? node.getChildren().size() : 0;
-            astInspectorLabel.setText(String.format("Selected: [%s]  Type: %s  Value: %s  Children: %d",
-                    node.getLabel(), node.getType(), node.getValue(), childCount));
+            astInspectorLabel.setText(String.format("Selected: [%s]  Type: %s  Value: %s  Children: %d", node.getLabel(), node.getType(), node.getValue(), childCount));
             e.consume();
         });
 
@@ -714,7 +781,8 @@ public class MainController implements Initializable {
 
         stackActionBadge.getStyleClass().removeAll("sra-shift", "sra-replace", "sra-accept");
         if ("shift".equalsIgnoreCase(current.getActionType())) stackActionBadge.getStyleClass().add("sra-shift");
-        else if ("replace".equalsIgnoreCase(current.getActionType())) stackActionBadge.getStyleClass().add("sra-replace");
+        else if ("replace".equalsIgnoreCase(current.getActionType()))
+            stackActionBadge.getStyleClass().add("sra-replace");
         else stackActionBadge.getStyleClass().add("sra-accept");
 
         stackCurrentTokenLabel.setText(current.getCurrentToken());
@@ -760,9 +828,7 @@ public class MainController implements Initializable {
 
     private void promptNewFileInTree() {
         TreeItem<File> selected = projectTree.getSelectionModel().getSelectedItem();
-        File parentDir = (selected != null && selected.getValue().isDirectory()) ?
-                selected.getValue() :
-                (workspaceService.getCurrentProject() != null ? new File(workspaceService.getCurrentProject().getRootDirectory(), "src") : null);
+        File parentDir = (selected != null && selected.getValue().isDirectory()) ? selected.getValue() : (workspaceService.getCurrentProject() != null ? new File(workspaceService.getCurrentProject().getRootDirectory(), "src") : null);
 
         if (parentDir == null) return;
 
@@ -787,9 +853,7 @@ public class MainController implements Initializable {
 
     private void promptNewFolderInTree() {
         TreeItem<File> selected = projectTree.getSelectionModel().getSelectedItem();
-        File parentDir = (selected != null && selected.getValue().isDirectory()) ?
-                selected.getValue() :
-                (workspaceService.getCurrentProject() != null ? workspaceService.getCurrentProject().getRootDirectory() : null);
+        File parentDir = (selected != null && selected.getValue().isDirectory()) ? selected.getValue() : (workspaceService.getCurrentProject() != null ? workspaceService.getCurrentProject().getRootDirectory() : null);
 
         if (parentDir == null) return;
 
@@ -849,14 +913,7 @@ public class MainController implements Initializable {
     public void handleOpenFile() {
         FileChooser fc = new FileChooser();
         fc.setTitle("Open Source File");
-        fc.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Nexu-Solairy Source Files (*.pig, *.y, *.z, *.c)", "*.pig", "*.y", "*.z", "*.c"),
-                new FileChooser.ExtensionFilter("Pig Latin (*.pig)", "*.pig"),
-                new FileChooser.ExtensionFilter("Y? Language (*.y)", "*.y"),
-                new FileChooser.ExtensionFilter("Zetariano (*.z)", "*.z"),
-                new FileChooser.ExtensionFilter("C Source (*.c)", "*.c"),
-                new FileChooser.ExtensionFilter("All Files", "*.*")
-        );
+        fc.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Nexu-Solairy Source Files (*.pig, *.y, *.z, *.c)", "*.pig", "*.y", "*.z", "*.c"), new FileChooser.ExtensionFilter("Pig Latin (*.pig)", "*.pig"), new FileChooser.ExtensionFilter("Y? Language (*.y)", "*.y"), new FileChooser.ExtensionFilter("Zetariano (*.z)", "*.z"), new FileChooser.ExtensionFilter("C Source (*.c)", "*.c"), new FileChooser.ExtensionFilter("All Files", "*.*"));
         File file = fc.showOpenDialog(stage);
         if (file != null) {
             openFileInEditor(file);
@@ -896,17 +953,68 @@ public class MainController implements Initializable {
         }
     }
 
-    @FXML public void handleSelectTerminal() { bottomTabPane.getSelectionModel().select(terminalTab); }
-    @FXML public void handleSelectProblems() { bottomTabPane.getSelectionModel().select(problemsTab); }
-    @FXML public void handleSelectAst() { bottomTabPane.getSelectionModel().select(astTab); }
-    @FXML public void handleSelectSymbols() { bottomTabPane.getSelectionModel().select(symbolsTab); }
-    @FXML public void handleSelectLexer() { bottomTabPane.getSelectionModel().select(lexerTab); }
-    @FXML public void handleSelectSyntax() { bottomTabPane.getSelectionModel().select(syntaxTab); }
-    @FXML public void handleSelectSemantic() { bottomTabPane.getSelectionModel().select(semanticTab); }
-    @FXML public void handleSelectC3D() { bottomTabPane.getSelectionModel().select(c3dTab); }
-    @FXML public void handleSelectQuadruples() { bottomTabPane.getSelectionModel().select(quadruplesTab); }
-    @FXML public void handleSelectStack() { bottomTabPane.getSelectionModel().select(stackTab); }
-    @FXML public void handleSelectHeap() { bottomTabPane.getSelectionModel().select(heapTab); }
+    @FXML
+    public void handleSelectTerminal() {
+        bottomTabPane.getSelectionModel().select(terminalTab);
+    }
+
+    @FXML
+    public void handleSelectProblems() {
+        bottomTabPane.getSelectionModel().select(problemsTab);
+    }
+
+    @FXML
+    public void handleSelectAst() {
+        bottomTabPane.getSelectionModel().select(astTab);
+    }
+
+    @FXML
+    public void handleSelectSymbols() {
+        bottomTabPane.getSelectionModel().select(symbolsTab);
+    }
+
+    @FXML
+    public void handleSelectLexer() {
+        bottomTabPane.getSelectionModel().select(LEXER_TAB);
+        LEXER_SUB_TAB_PANE.getSelectionModel().select(0);
+    }
+
+    @FXML
+    public void handleSelectLexerError() {
+        bottomTabPane.getSelectionModel().select(LEXER_TAB);
+        LEXER_SUB_TAB_PANE.getSelectionModel().select(1);
+
+    }
+
+    @FXML
+    public void handleSelectSyntax() {
+        bottomTabPane.getSelectionModel().select(syntaxTab);
+    }
+
+    @FXML
+    public void handleSelectSemantic() {
+        bottomTabPane.getSelectionModel().select(semanticTab);
+    }
+
+    @FXML
+    public void handleSelectC3D() {
+        bottomTabPane.getSelectionModel().select(c3dTab);
+    }
+
+    @FXML
+    public void handleSelectQuadruples() {
+        bottomTabPane.getSelectionModel().select(quadruplesTab);
+    }
+
+    @FXML
+    public void handleSelectStack() {
+        bottomTabPane.getSelectionModel().select(stackTab);
+    }
+
+    @FXML
+    public void handleSelectHeap() {
+        bottomTabPane.getSelectionModel().select(heapTab);
+    }
 
     @FXML
     public void handleRunProject() {
@@ -929,17 +1037,11 @@ public class MainController implements Initializable {
         workspaceService.notifyUser("Execution completed: " + targetName);
     }
 
-    @FXML public void handleRunActiveFile() { handleRunProject(); }
-
     @FXML
-    public void handleStopExecution() {
-        var session = workspaceService.getActiveSession();
-        if (session != null) {
-            session.setStatus(ExecutionSession.SessionStatus.STOPPED);
-            appendTerminalError("Execution stopped by user.");
-            workspaceService.notifyUser("Execution terminated");
-        }
+    public void handleRunActiveFile() {
+        handleRunProject();
     }
+
 
     @FXML
     public void handleAnalyze() {
@@ -949,10 +1051,10 @@ public class MainController implements Initializable {
         workspaceService.notifyUser("Analysis pipeline executed");
     }
 
+    // corre el archivo actual para el lexer
     @FXML
     public void handleRunLexer() {
-        bottomTabPane.getSelectionModel().select(lexerTab);
-        workspaceService.notifyUser("Lexical analysis tab active");
+        runLexicalAnalysis();
     }
 
     @FXML
@@ -963,17 +1065,10 @@ public class MainController implements Initializable {
 
     @FXML
     public void handleShowWelcome() {
-        WelcomeDialog welcome = new WelcomeDialog(
-                stage,
-                this::handleNewProject,
-                this::handleOpenProject,
-                this::handleOpenFile,
-                projectService.getRecentProjects(),
-                dir -> {
-                    Project project = projectService.openProject(dir);
-                    loadProjectInExplorer(project);
-                }
-        );
+        WelcomeDialog welcome = new WelcomeDialog(stage, this::handleNewProject, this::handleOpenProject, this::handleOpenFile, projectService.getRecentProjects(), dir -> {
+            Project project = projectService.openProject(dir);
+            loadProjectInExplorer(project);
+        });
         welcome.show();
     }
 
@@ -981,7 +1076,6 @@ public class MainController implements Initializable {
     public void handleShowDocumentation() {
         workspaceService.notifyUser("Nexu-Solairy Documentation v1.0 (Pig Latin, Y?, Zetariano)");
     }
-
 
     @FXML
     public void handleRefreshTree() {
@@ -1097,7 +1191,6 @@ public class MainController implements Initializable {
         NotificationToast.show(mainRootContainer, message);
     }
 
-
     private String getFileIconSymbol(LanguageType lang) {
         return switch (lang) {
             case PIG_LATIN -> "◈";
@@ -1131,6 +1224,7 @@ public class MainController implements Initializable {
         list.add(new CommandItem("Show AST Visualizer", "View", "", this::handleSelectAst));
         list.add(new CommandItem("Show Symbol Table", "View", "", this::handleSelectSymbols));
         list.add(new CommandItem("Show Lexer Tokens", "View", "", this::handleSelectLexer));
+        list.add(new CommandItem("Show Lexer Error Tokens", "View", "", this::handleSelectLexerError));
         list.add(new CommandItem("Show Three Address Code (C3D)", "View", "", this::handleSelectC3D));
         list.add(new CommandItem("Show Quadruples", "View", "", this::handleSelectQuadruples));
         list.add(new CommandItem("Show Parser Stack", "View", "", this::handleSelectStack));
@@ -1138,6 +1232,93 @@ public class MainController implements Initializable {
         list.add(new CommandItem("Toggle Project Explorer", "View", "", this::handleToggleExplorer));
         list.add(new CommandItem("Show Welcome Screen", "Help", "", this::handleShowWelcome));
         return list;
+    }
+
+    // corre el codigo lexico para su analisis
+    private void runLexicalAnalysis() {
+        // buscar el pane activo
+        EditorTabModel activeTab = workspaceService.getActiveTab();
+
+        if (activeTab == null) {
+            workspaceService.notifyUser("No active file");
+            return;
+        }
+
+        CodeArea codeArea = codeAreaMap.get(activeTab);
+
+        if (codeArea == null) {
+            workspaceService.notifyUser("No editor found for active file");
+            return;
+        }
+
+        bottomTabPane.getSelectionModel().select(LEXER_TAB);
+        LEXER_SUB_TAB_PANE.getSelectionModel().select(0);
+
+        // obtener codigo del area activa
+        String source = codeArea.getText();
+
+        try {
+
+            // realizar el analisis
+            LexerService lexer = LexerFactory.create(activeTab.getLanguageType());
+
+            if (lexer == null) {
+                workspaceService.notifyUser("Could not create lexer for " + activeTab.getLanguageType().getDisplayName());
+                return;
+            }
+
+            tokensList.clear();
+            lexerErrorsList.clear();
+
+            tokensTable.setItems(tokensList);
+            lexerErrorsTable.setItems(lexerErrorsList);
+
+            ResultLexer result = lexer.analyze(source);
+
+            tokensList.setAll(result.tokens);
+
+            tokensBadge.setText("Tokens: " + result.tokens.size());
+
+            // resultado del analisis
+            if (result.isValid()) {
+
+                LEXER_SUB_TAB_PANE.getSelectionModel().select(0);
+
+                setBadgeStyle(tokensBadge, "badge-success", "Tokens: " + result.tokens.size());
+
+                setBadgeStyle(errorsBadge, "badge-info", "Errores: 0");
+
+                workspaceService.notifyUser("Lexical Analysis Completed Successfully");
+
+            } else {
+
+                lexerErrorsList.setAll(result.errors);
+
+                LEXER_SUB_TAB_PANE.getSelectionModel().select(1);
+
+                setBadgeStyle(tokensBadge, "badge-warning", "Tokens: " + result.tokens.size());
+
+                setBadgeStyle(errorsBadge, "badge-danger", "Errores: " + result.errors.size());
+
+                workspaceService.notifyUser("Lexical Analysis Failed — Errors Found");
+            }
+
+        } catch (Exception e) {
+
+            bottomTabPane.getSelectionModel().select(LEXER_TAB);
+            LEXER_SUB_TAB_PANE.getSelectionModel().select(1);
+
+            e.printStackTrace();
+
+            workspaceService.notifyUser("Lexer error: " + e.getMessage());
+        }
+    }
+
+    // clase para pintar
+    private void setBadgeStyle(Label badge, String styleClass, String text) {
+        badge.getStyleClass().removeAll("badge-success", "badge-warning", "badge-danger", "badge-info");
+        badge.getStyleClass().add(styleClass);
+        badge.setText(text);
     }
 }
 

@@ -11,13 +11,13 @@ module org.nexus.nexussolairy {
     requires org.fxmisc.richtext;
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
+    requires org.antlr.antlr4.runtime;
 
     opens org.nexus.nexussolairy to javafx.fxml;
     opens org.nexus.nexussolairy.controller to javafx.fxml;
     opens org.nexus.nexussolairy.view to javafx.fxml;
     exports org.nexus.nexussolairy;
     exports org.nexus.nexussolairy.controller;
-    exports org.nexus.nexussolairy.service;
     exports org.nexus.nexussolairy.view;
     exports org.nexus.nexussolairy.model.enums;
     opens org.nexus.nexussolairy.model.enums to javafx.base;
