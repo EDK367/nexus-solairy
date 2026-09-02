@@ -17,52 +17,49 @@ DEFINIR     : 'definir'     ;
 
 // FUNCIONES ESPECIALES
 // entrada
-LEER        : 'leer';
+LEER        : 'leer'        ;
 // salida
-IMPRIMIR    : 'imprimir';
+IMPRIMIR    : 'imprimir'    ;
 // asignacion de retorno
-RETURN_VALUE : '->';
+RETURN_VALUE : '->' ;
 
 // CONTROL DE FLUJO
-// selecion
-SI          : 'si';
-ENTONCES    : 'entonces';
-SINO        : 'sino';
-CONTRARIO   : 'contrario';
-ELEGIR      : 'elegir';
-CASO        : 'caso';
-SIEMPRE     : 'siempre';
-// bucle
-PARA        : 'para';
-MIENTRAS    : 'mientras';
-HACER       : 'hacer';
+// control de flujo principales
+SI          : 'si'          ;
+ENTONCES    : 'entonces'    ;
+SINO        : 'sino'        ;
+CONTRARIO   : 'contrario'   ;
+ELEGIR      : 'elegir'      ;
+CASO        : 'caso'        ;
+SIEMPRE     : 'siempre'     ;
+PARA        : 'para'        ;
+MIENTRAS    : 'mientras'    ;
+HACER       : 'hacer'       ;
 // control de flujo interno
-RETORNAR    : 'retornar';
-ROMPER      : 'romper';
-CONTINUAR   : 'continuar';
+RETORNAR    : 'retornar'    ;
+ROMPER      : 'romper'      ;
+CONTINUAR   : 'continuar'   ;
 
 // primitivos
-CADENA      : 'cadena';
-ENTERO      : 'entero';
+CADENA      : 'cadena'  ;
+ENTERO      : 'entero'  ;
 FLOTANTE    : 'flotante';
 CARACTER    : 'caracter';
-BOOL        : 'bool';
+BOOL        : 'bool'    ;
 
 // booleanos
-VERDADERO   : 'verdadero';
-FALSO       : 'falso';
+VERDADERO   : 'verdadero'   ;
+FALSO       : 'falso'       ;
 
-// logicos
+// LOGICOS
 NOT : '!'   ;
 AND : '&&'  ;
 OR  : '||'  ;
-
 // operadores logicos
 EQ    : '==' ;
 NEQ   : '!=' ;
 LE    : '<=' ;
 GE    : '>=' ;
-
 // operadores logicos de valor bajo
 LT     : '<' ;
 GT     : '>' ;
@@ -70,7 +67,6 @@ GT     : '>' ;
 // manejo de valor
 INC   : '++' ;
 DEC   : '--' ;
-
 
 // operadores aritmeticos
 PLUS   : '+' ;
@@ -97,17 +93,17 @@ RPAREN : ')' ;
 
 
 // datos primitivos del sistema
-DECIMAL : [0-9]+ '.' [0-9]+ ;
-NUMBER  : [0-9]+ ;
-STRING  : '"' (ESC | ~["\\\r\n])* '"' ;
-CHAR    : '\'' (ESC | ~['\\\r\n]) '\'' ;
+DECIMAL : [0-9]+ '.' [0-9]+             ;
+NUMBER  : [0-9]+                        ;
+STRING  : '"' (ESC | ~["\\\r\n])* '"'   ;
+CHAR    : '\'' (ESC | ~['\\\r\n]) '\''  ;
 
 // fragmentacion en cadenas
 fragment ESC : '\\' [btnrf"'\\] ;
 
 // identificador
-ID  : [a-zA-Z_][a-zA-Z0-9_]* ;
+ID  : [a-zA-Z_][a-zA-Z0-9_]*    ;
 
 // identacion
-NEWLINE     : ('\r'? '\n' | '\r');
-SPACE    : [ \t]+ -> skip;
+NEWLINE     : ('\r'? '\n' | '\r')   ;
+SPACE    : [ \t]+ -> skip           ;

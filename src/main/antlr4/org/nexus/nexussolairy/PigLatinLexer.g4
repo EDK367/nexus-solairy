@@ -22,29 +22,29 @@ SERIES      : 'series'      ;
 FINIS       : 'finis'       ;
 
 // control de flujo
-SI         : 'si' ;
-ALITER     : 'aliter' ;
-DUM        : 'dum' ;
-FACERE     : 'facere' ;
-PER        : 'per' ;
-PERGE      : 'perge' ;
-INTERRUMPE : 'interrumpe' ;
+SI         : 'si'           ;
+ALITER     : 'aliter'       ;
+DUM        : 'dum'          ;
+FACERE     : 'facere'       ;
+PER        : 'per'          ;
+PERGE      : 'perge'        ;
+INTERRUMPE : 'interrumpe'   ;
 
 // funciones
-ACTIO   : 'actio' ;
-RATIO   : 'ratio' ;
+ACTIO   : 'actio'   ;
+RATIO   : 'ratio'   ;
 REDDERE : 'reddere' ;
 
 // primitivos
-NUMERUS   : 'numerus' ;
-TEXTUM    : 'textum' ;
+NUMERUS   : 'numerus'   ;
+TEXTUM    : 'textum'    ;
 DECIMALIS : 'decimalis' ;
-LITTERA   : 'littera' ;
-BOOL      : 'bool';
+LITTERA   : 'littera'   ;
+BOOL      : 'bool'      ;
 
 // booleanos
-VERUM  : 'verum' ;
-FALSUS : 'falsus' ;
+VERUM  : 'verum'    ;
+FALSUS : 'falsus'   ;
 
 // negacion universal
 NOT : '!'   ;
@@ -94,10 +94,10 @@ LPAREN : '(' ;
 RPAREN : ')' ;
 
 // datos primitivos del sistema
-DECIMAL : [0-9]+ '.' [0-9]+ ;
-NUMBER  : [0-9]+ ;
-STRING  : '"' (ESC | ~["\\\r\n])* '"' ;
-CHAR    : '\'' (ESC | ~['\\\r\n]) '\'' ;
+DECIMAL : [0-9]+ '.' [0-9]+             ;
+NUMBER  : [0-9]+                        ;
+STRING  : '"' (ESC | ~["\\\r\n])* '"'   ;
+CHAR    : '\'' (ESC | ~['\\\r\n]) '\''  ;
 
 // fragmentacion en cadenas
 fragment ESC : '\\' [btnrf"'\\] ;

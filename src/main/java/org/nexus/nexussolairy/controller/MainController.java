@@ -913,7 +913,13 @@ public class MainController implements Initializable {
     public void handleOpenFile() {
         FileChooser fc = new FileChooser();
         fc.setTitle("Open Source File");
-        fc.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("Nexu-Solairy Source Files (*.pig, *.y, *.z, *.c)", "*.pig", "*.y", "*.z", "*.c"), new FileChooser.ExtensionFilter("Pig Latin (*.pig)", "*.pig"), new FileChooser.ExtensionFilter("Y? Language (*.y)", "*.y"), new FileChooser.ExtensionFilter("Zetariano (*.z)", "*.z"), new FileChooser.ExtensionFilter("C Source (*.c)", "*.c"), new FileChooser.ExtensionFilter("All Files", "*.*"));
+        fc.getExtensionFilters().addAll(new FileChooser.ExtensionFilter(
+                "Nexu-Solairy Source Files (*.pig, *.y, *.z, *.c)", "*.pig", "*.y", "*.z", "*.c"),
+                new FileChooser.ExtensionFilter("Pig Latin (*.pig)", "*.pig"),
+                new FileChooser.ExtensionFilter("Y? Language (*.y)", "*.y"),
+                new FileChooser.ExtensionFilter("Zetariano (*.z)", "*.z"),
+                new FileChooser.ExtensionFilter("C Source (*.c)", "*.c"),
+                new FileChooser.ExtensionFilter("All Files", "*.*"));
         File file = fc.showOpenDialog(stage);
         if (file != null) {
             openFileInEditor(file);

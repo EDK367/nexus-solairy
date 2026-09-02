@@ -145,19 +145,61 @@ public class ProjectService {
                                 romper
                     """;
             case ZETARIANO -> """
-                    clase Explorador {
-                        entero id;
-                        cadena alias;
+                    public class Principal {
+                        // Atributos
+                        int edad = 25;
+                        double altura = 1.75;
+                        char inicial = 'A';
+                        boolean activo = true;
+                        String nombre = "Resistencia";
                     
-                        metodo inicializar(entero nuevoId, cadena nuevoAlias) {
-                            este.id = nuevoId;
-                            este.alias = nuevoAlias;
+                        public Principal() {
+                            // Arreglos
+                            int[] calificaciones = new int[5];
+                            String[] nombres = {"Carlos", "Ana", "Pedro"};
+                            int[][] matriz = new int[3][3];
+                    
+                            // Objetos
+                            Persona alumno1 = new Persona("Carlos", 20);
+                    
+                            // Operadores compuestos
+                            int x = 5;
+                            x += 3;
+                            x -= 2;
+                            x *= 2;
+                    
+                            // Ternario
+                            String mensaje = (edad >= 18) ? "Adulto" : "Menor";
+                    
+                            // Ciclo con break y continue
+                            for (int i = 0; i < 10; i++) {
+                                if (i % 2 == 0) continue;
+                                if (i > 7) break;
+                                print(i);
+                            }
+                    
+                            // Entrada/salida
+                            println("Hola Zetarianos");
+                            String entrada = readln();
+                        }
+                    }
+                    
+                    public class Persona {
+                        String nombre;
+                        int edad;
+                    
+                        public Persona(String n, int e) {
+                            nombre = n;
+                            edad = e;
                         }
                     
-                        metodo ejecutarMision() {
-                            si este.id > 0 {
-                                imprimir("Mision espacial iniciada por: " + este.alias);
-                            }
+                        public Persona() {
+                            nombre = "Sin nombre";
+                            edad = 0;
+                        }
+                    
+                        public int obtenerEdad() {
+                            return edad;
                         }
                     }
                     """;
