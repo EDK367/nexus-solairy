@@ -33,9 +33,9 @@ public class ProjectService {
         srcDir.mkdirs();
         genDir.mkdirs();
 
-        File mainPig = new File(genDir, "pig.pig");
-        File mainY = new  File(genDir, "python.y");
-        File mainZet = new   File(genDir, "python.z");
+        File mainPig = new File(genDir, "main.pig");
+        File mainY = new File(genDir, "python.y");
+        File mainZet = new File(genDir, "zet.z");
 
         fileService.writeFile(mainPig, getStarterCode(LanguageType.PIG_LATIN));
         fileService.writeFile(mainY, getStarterCode(LanguageType.Y_LANG));
@@ -72,51 +72,95 @@ public class ProjectService {
     public String getStarterCode(LanguageType language) {
         return switch (language) {
             case PIG_LATIN -> """
-VARIABILES>
-
-esto edad : numerus 20;
-esto nombre : textum "Carlos";
-esto activo : verum;
-
-MAIOR>
-
->> "Hola comandante Nexu!";
->> "Iniciando compilacion de Pig Latin...";
->> nombre;
->> edad;
-
-FINIS;
-""";
+                    VARIABILES>
+                    
+                    esto edad : numerus 20;
+                    esto nombre : textum "Carlos";
+                    esto activo : verum;
+                    
+                    MAIOR>
+                    
+                    >> "Hola comandante Nexu!";
+                    >> "Iniciando compilacion de Pig Latin...";
+                    >> nombre;
+                    >> edad;
+                    
+                    FINIS;
+                    """;
             case Y_LANG -> """
-def main() -> void {
-    let mut contador: int = 0;
-    let mensaje: string = "Nexus Antiquus Core";
-    
-    while contador < 10 {
-        print(mensaje);
-        contador = contador + 1;
-    }
-    
-    return;
-}
-""";
+                    // Estructuras globales
+                    %estructuras
+                    estructura Persona:
+                        cadena nombre
+                        entero edad
+                        flotante promedio
+                    
+                    estructura Direccion:
+                        cadena calle
+                        entero numero
+                    
+                    // Funciones
+                    %funciones
+                    definir saludar(cadena mensaje):
+                        imprimir(mensaje)
+                    
+                    definir esMayor(entero edad) -> bool:
+                        si (edad >= 18) entonces
+                            retornar verdadero
+                        contrario
+                            retornar falso
+                    
+                    definir principal():
+                        // Variables
+                        entero contador = 0
+                        flotante pi = 3.14
+                        bool activo = falso
+                        cadena nombre = "Resistencia"
+                    
+                        // Arreglo y struct
+                        entero valores[3] = {1, 2, 3}
+                        Persona p = {"Ana", 25, 85.5}
+                    
+                        // Ciclo mientras
+                        mientras (contador < 5) hacer
+                            si (contador == 2) entonces
+                                continuar
+                            imprimir(contador)
+                            contador++
+                    
+                        // Ciclo para
+                        para (entero i = 0; i < 3; i++):
+                            imprimir(i)
+                    
+                        // Elegir
+                        elegir (contador):
+                            caso 1:
+                                imprimir("Uno")
+                                romper
+                            caso 2:
+                                imprimir("Dos")
+                                romper
+                            siempre:
+                                imprimir("Otro")
+                                romper
+                    """;
             case ZETARIANO -> """
-clase Explorador {
-    entero id;
-    cadena alias;
-    
-    metodo inicializar(entero nuevoId, cadena nuevoAlias) {
-        este.id = nuevoId;
-        este.alias = nuevoAlias;
-    }
-    
-    metodo ejecutarMision() {
-        si este.id > 0 {
-            imprimir("Mision espacial iniciada por: " + este.alias);
-        }
-    }
-}
-""";
+                    clase Explorador {
+                        entero id;
+                        cadena alias;
+                    
+                        metodo inicializar(entero nuevoId, cadena nuevoAlias) {
+                            este.id = nuevoId;
+                            este.alias = nuevoAlias;
+                        }
+                    
+                        metodo ejecutarMision() {
+                            si este.id > 0 {
+                                imprimir("Mision espacial iniciada por: " + este.alias);
+                            }
+                        }
+                    }
+                    """;
             default -> "";
         };
     }

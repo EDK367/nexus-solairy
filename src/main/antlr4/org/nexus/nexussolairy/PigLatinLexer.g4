@@ -12,7 +12,6 @@ NOVUS   : 'novus'   ;
 
 // encabezados
 VARIABILES  : 'VARIABILES'  ;
-MUNERA      : 'MUNERA'      ;
 MAIOR       : 'MAIOR'       ;
 FINIS_PROG  : 'FINIS'       ;
 
@@ -48,7 +47,6 @@ VERUM  : 'verum' ;
 FALSUS : 'falsus' ;
 
 // negacion universal
-//NON : 'non' ;
 NOT : '!'   ;
 
 // operadores logicos
@@ -105,4 +103,4 @@ CHAR    : '\'' (ESC | ~['\\\r\n]) '\'' ;
 fragment ESC : '\\' [btnrf"'\\] ;
 
 // identificador
-IDENTIFIER : [a-zA-Z_][a-zA-Z0-9_]* ;
+ID : [a-zA-Z_][a-zA-Z0-9_]* ;
