@@ -30,11 +30,6 @@ PER        : 'per'          ;
 PERGE      : 'perge'        ;
 INTERRUMPE : 'interrumpe'   ;
 
-// funciones
-ACTIO   : 'actio'   ;
-RATIO   : 'ratio'   ;
-REDDERE : 'reddere' ;
-
 // primitivos
 NUMERUS   : 'numerus'   ;
 TEXTUM    : 'textum'    ;
