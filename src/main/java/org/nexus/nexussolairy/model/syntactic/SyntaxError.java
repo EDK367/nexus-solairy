@@ -47,4 +47,14 @@ public class SyntaxError {
     public SimpleStringProperty messageProperty() {
         return message;
     }
+
+    @Override
+    public String toString() {
+        return "SyntaxError{" +
+                "severity=" + severity +
+                ", line=" + line +
+                ", column=" + column +
+                ", message=" + message +
+                '}';
+    }
 }

@@ -32,7 +32,9 @@ import org.nexus.nexussolairy.model.semantic.view.SymbolViewModel;
 import org.nexus.nexussolairy.model.syntactic.SyntaxError;
 import org.nexus.nexussolairy.model.view.*;
 import org.nexus.nexussolairy.patron.LexerFactory;
+import org.nexus.nexussolairy.patron.ParserFactory;
 import org.nexus.nexussolairy.service.grammar.LexerService;
+import org.nexus.nexussolairy.service.parser.ParserService;
 import org.nexus.nexussolairy.service.ui.FileService;
 import org.nexus.nexussolairy.service.ui.ProjectService;
 import org.nexus.nexussolairy.service.ui.WorkspaceService;
@@ -124,7 +126,7 @@ public class MainController implements Initializable {
     private TableColumn<LexerError, String> colLexErrMsg;
 
     @FXML
-    private Tab syntaxTab;
+    private Tab SYNTAX_TAB;
     @FXML
     private TableView<SyntaxError> syntaxTable;
     @FXML
@@ -994,7 +996,7 @@ public class MainController implements Initializable {
 
     @FXML
     public void handleSelectSyntax() {
-        bottomTabPane.getSelectionModel().select(syntaxTab);
+        bottomTabPane.getSelectionModel().select(SYNTAX_TAB);
     }
 
     @FXML
@@ -1065,8 +1067,7 @@ public class MainController implements Initializable {
 
     @FXML
     public void handleRunParser() {
-        bottomTabPane.getSelectionModel().select(astTab);
-        workspaceService.notifyUser("Syntax analysis tab active");
+        runSyntaxAnalysis();
     }
 
     @FXML
@@ -1317,6 +1318,53 @@ public class MainController implements Initializable {
             e.printStackTrace();
 
             workspaceService.notifyUser("Lexer error: " + e.getMessage());
+        }
+    }
+
+    private void runSyntaxAnalysis() {
+        EditorTabModel activeTab = workspaceService.getActiveTab();
+
+        if (activeTab == null) {
+            workspaceService.notifyUser("No active file");
+            return;
+        }
+
+        CodeArea codeArea = codeAreaMap.get(activeTab);
+
+        if (codeArea == null) {
+            workspaceService.notifyUser("No editor found for active file");
+            return;
+        }
+
+        handleSelectSyntax();
+
+        String source = codeArea.getText();
+
+        try {
+            ParserService parser = ParserFactory.create(activeTab.getLanguageType());
+
+            if (parser == null) {
+                workspaceService.notifyUser("Could not create parser for " + activeTab.getLanguageType().getDisplayName());
+                return;
+            }
+
+            syntaxErrorsList.clear();
+            syntaxTable.setItems(syntaxErrorsList);
+
+            List<SyntaxError> errors = parser.analyze(source);
+            System.out.println(errors.toString());
+            syntaxErrorsList.setAll(errors);
+
+            if (errors.isEmpty()) {
+                workspaceService.notifyUser("Syntax Analysis Completed Successfully");
+            } else {
+                workspaceService.notifyUser("Syntax Analysis Failed — Errors Found");
+            }
+
+        } catch (Exception e) {
+            handleSelectSyntax();
+            e.printStackTrace();
+            workspaceService.notifyUser("Parser error: " + e.getMessage());
         }
     }
 

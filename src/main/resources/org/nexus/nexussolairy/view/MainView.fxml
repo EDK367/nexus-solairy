@@ -255,7 +255,7 @@
                                         </TabPane>
                                     </Tab>
 
-                                    <Tab fx:id="syntaxTab" text="SYNTAX">
+                                    <Tab fx:id="SYNTAX_TAB" text="SYNTAX">
                                         <TableView fx:id="syntaxTable" styleClass="table">
                                             <columns>
                                                 <TableColumn fx:id="colSynSeverity" text="Severity" prefWidth="100"/>
