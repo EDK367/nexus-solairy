@@ -470,6 +470,7 @@ public class MainController implements Initializable {
         colSynCol.setCellValueFactory(c -> c.getValue().columnProperty());
         colSynMsg.setCellValueFactory(c -> c.getValue().messageProperty());
 
+        syntaxTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         syntaxTable.setItems(syntaxErrorsList);
         syntaxTable.setPlaceholder(new Label("No syntactic errors detected"));
     }

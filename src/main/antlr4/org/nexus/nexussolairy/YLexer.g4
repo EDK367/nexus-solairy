@@ -4,8 +4,8 @@ lexer grammar YLexer;
 tokens { INDENT, DEDENT }
 
 // comentarios
-LINE_COMMENT  : '//' ~[\r\n]*  -> channel(HIDDEN) ;
-BLOCK_COMMENT : '/*' .*? '*/'  -> channel(HIDDEN) ;
+LINE_COMMENT  : '//' ~[\r\n]*  -> skip ;
+BLOCK_COMMENT : '/*' .*? '*/'  -> skip ;
 
 // encabezados
 SEC_STRUCT      : '%estructuras'    ;
@@ -105,5 +105,5 @@ fragment ESC : '\\' [btnrf"'\\] ;
 ID  : [a-zA-Z_][a-zA-Z0-9_]*    ;
 
 // identacion
-NEWLINE     : ('\r'? '\n' | '\r')   ;
-SPACE    : [ \t]+ -> skip           ;
+NEWLINE     : '\r'? '\n' | '\r' ;
+TAB          : [ \t]+           ;
