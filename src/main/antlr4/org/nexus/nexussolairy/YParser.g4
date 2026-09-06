@@ -5,15 +5,15 @@ options { tokenVocab = YLexer; }
 // ===========================
 // PROGRAMA
 // ============================
-program : newLine* structSection? funcSection EOF
+program : newLine* structSection? newLine* funcSection newLine* EOF
         ;
 
 // seccion para la estructuras (opcional)
-structSection : SEC_STRUCT newLine* structDef*
+structSection : SEC_STRUCT newLine* (structDef newLine*)*
               ;
 
 // seccion para la funciones (obligatoria)
-funcSection : SEC_FUNCTION newLine* funcDef*
+funcSection : SEC_FUNCTION newLine* (funcDef newLine*)*
             ;
 
 // definicion para la estructura
@@ -60,6 +60,10 @@ varDecl : type ID (ASSIGN expression)?
 arrayInit : LBRACE expressionList? RBRACE
           ;
 
+// struct pendiente para probar
+structLiteral : LBRACE expressionList? RBRACE
+              ;
+
 // blockes con identacion (dentro del codigo)
 block : INDENT statement+ DEDENT
       ;
@@ -82,10 +86,6 @@ statement : varDecl newLine+
           | structDef
           | newLine
           ;
-
-// struct pendiente para probar
-structLiteral : LBRACE expressionList? RBRACE
-              ;
 
 // asignaciones
 assignStmt : target ASSIGN expression
@@ -172,6 +172,7 @@ type : ENTERO
      | CADENA
      | CARACTER
      | BOOL
+     | ID
      ;
 
 
