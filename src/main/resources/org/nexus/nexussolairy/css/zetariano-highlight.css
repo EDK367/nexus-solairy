@@ -1,0 +1,95 @@
+.code-area.zetariano-editor,
+.code-area {
+    -fx-background-color: #081510;
+}
+
+.code-area.zetariano-editor .text,
+.code-area .text {
+    -fx-fill: #E5F2EA;
+}
+
+.code-area.zetariano-editor .selection,
+.code-area .selection {
+    -fx-fill: #14966F;
+    -fx-opacity: 0.34;
+}
+
+.code-area.zetariano-editor .caret,
+.code-area .caret {
+    -fx-stroke: #4DE1A8;
+    -fx-stroke-width: 2px;
+}
+
+.code-area.zetariano-editor .section,
+.code-area .section {
+    -fx-fill: #65E6A8;
+    -fx-font-weight: bold;
+}
+
+.code-area.zetariano-editor .decl,
+.code-area .decl {
+    -fx-fill: #32C98A;
+    -fx-font-weight: bold;
+}
+
+.code-area.zetariano-editor .control,
+.code-area .control {
+    -fx-fill: #FFB454;
+    -fx-font-weight: bold;
+}
+
+.code-area.zetariano-editor .function,
+.code-area .function {
+    -fx-fill: #20C997;
+}
+
+.code-area.zetariano-editor .type,
+.code-area .type {
+    -fx-fill: #8DDC68;
+    -fx-font-weight: bold;
+}
+
+.code-area.zetariano-editor .boolean,
+.code-area .boolean {
+    -fx-fill: #FF8F4D;
+    -fx-font-weight: bold;
+}
+
+.code-area.zetariano-editor .number,
+.code-area .number {
+    -fx-fill: #C7E75B;
+}
+
+.code-area.zetariano-editor .string,
+.code-area .string {
+    -fx-fill: #FFD166;
+}
+
+.code-area.zetariano-editor .char,
+.code-area .char {
+    -fx-fill: #FFE38A;
+}
+
+.code-area.zetariano-editor .operator,
+.code-area .operator {
+    -fx-fill: #49D6A0;
+}
+
+.code-area.zetariano-editor .punct,
+.code-area .punct {
+    -fx-fill: #86A99A;
+}
+
+.code-area.zetariano-editor .comment,
+.code-area .comment {
+    -fx-fill: #587A6B;
+    -fx-font-style: italic;
+}
+
+.code-area.zetariano-editor .syntax-error,
+.code-area .syntax-error,
+.code-area.zetariano-editor .error,
+.code-area .error {
+    -fx-fill: #FF5964;
+    -fx-underline: true;
+}

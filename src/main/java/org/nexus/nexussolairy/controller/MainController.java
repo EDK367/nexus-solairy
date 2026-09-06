@@ -1,8 +1,10 @@
 package org.nexus.nexussolairy.controller;
 
 import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import org.nexus.nexussolairy.ui.SintaxColor;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -595,22 +597,38 @@ public class MainController implements Initializable {
         codeArea.getStyleClass().add("code-area");
         codeArea.setParagraphGraphicFactory(LineNumberFactory.get(codeArea));
 
+        // aplicar color a la sintaxis
+        applyLanguageStyle(codeArea, model.getLanguageType());
+
         codeArea.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             if (event.getCode() == KeyCode.TAB) {
                 event.consume();
-
                 int caret = codeArea.getCaretPosition();
-
-                // insertar exactamente 4 espacios
                 codeArea.insertText(caret, "    ");
-
-                // mover cursor a 4 espacios
                 codeArea.moveTo(caret + 4);
             }
         });
 
         codeArea.replaceText(content);
+        try {
+            codeArea.setStyleSpans(0, SintaxColor.compute(content, model.getLanguageType()));
+        } catch (Exception ignored) {
+        }
+
         codeAreaMap.put(model, codeArea);
+
+        PauseTransition debounce = new PauseTransition(Duration.millis(60));
+        debounce.setOnFinished(evt -> {
+            try {
+                codeArea.setStyleSpans(0, SintaxColor.compute(codeArea.getText(), model.getLanguageType()));
+            } catch (Exception ignored) {
+            }
+        });
+
+        codeArea.textProperty().addListener((obs, oldText, newText) -> {
+            model.setDirty(!newText.equals(model.getSavedContent()));
+            debounce.playFromStart();
+        });
 
         codeArea.caretPositionProperty().addListener((obs, oldPos, newPos) -> {
             updateCursorPosition(codeArea);
@@ -649,6 +667,33 @@ public class MainController implements Initializable {
         int line = area.getCurrentParagraph() + 1;
         int col = area.getCaretColumn() + 1;
         workspaceService.setCursorPosition(line, col);
+    }
+
+    // pinta los tokens y errores y aplica sus estilos
+    private void applyLanguageStyle(CodeArea codeArea, LanguageType language) {
+        String cssPath = switch (language) {
+            case PIG_LATIN -> "/org/nexus/nexussolairy/css/piglatin-highlight.css";
+            case Y_LANG -> "/org/nexus/nexussolairy/css/y-highlight.css";
+            case ZETARIANO -> "/org/nexus/nexussolairy/css/zetariano-highlight.css";
+            default -> null;
+        };
+        codeArea.getStyleClass().removeAll("piglatin-editor", "y-editor", "zetariano-editor");
+        if (language == LanguageType.PIG_LATIN) {
+            codeArea.getStyleClass().add("piglatin-editor");
+        } else if (language == LanguageType.Y_LANG) {
+            codeArea.getStyleClass().add("y-editor");
+        } else if (language == LanguageType.ZETARIANO) {
+            codeArea.getStyleClass().add("zetariano-editor");
+        }
+        if (cssPath != null) {
+            var resource = getClass().getResource(cssPath);
+            if (resource != null) {
+                String externalForm = resource.toExternalForm();
+                if (!codeArea.getStylesheets().contains(externalForm)) {
+                    codeArea.getStylesheets().add(externalForm);
+                }
+            }
+        }
     }
 
     private void rebuildSessionTabs() {

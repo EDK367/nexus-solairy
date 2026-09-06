@@ -1,0 +1,95 @@
+.code-area.y-editor,
+.code-area {
+    -fx-background-color: #0E151F;
+}
+
+.code-area.y-editor .text,
+.code-area .text {
+    -fx-fill: #E7EDF5;
+}
+
+.code-area.y-editor .selection,
+.code-area .selection {
+    -fx-fill: #2779C9;
+    -fx-opacity: 0.34;
+}
+
+.code-area.y-editor .caret,
+.code-area .caret {
+    -fx-stroke: #5AA9F5;
+    -fx-stroke-width: 2px;
+}
+
+.code-area.y-editor .section,
+.code-area .section {
+    -fx-fill: #7FC4FF;
+    -fx-font-weight: bold;
+}
+
+.code-area.y-editor .decl,
+.code-area .decl {
+    -fx-fill: #4FA3F7;
+    -fx-font-weight: bold;
+}
+
+.code-area.y-editor .control,
+.code-area .control {
+    -fx-fill: #B98AFF;
+    -fx-font-weight: bold;
+}
+
+.code-area.y-editor .function,
+.code-area .function {
+    -fx-fill: #55D3E6;
+}
+
+.code-area.y-editor .type,
+.code-area .type {
+    -fx-fill: #6DB5FF;
+    -fx-font-weight: bold;
+}
+
+.code-area.y-editor .boolean,
+.code-area .boolean {
+    -fx-fill: #FFD166;
+    -fx-font-weight: bold;
+}
+
+.code-area.y-editor .number,
+.code-area .number {
+    -fx-fill: #F5C451;
+}
+
+.code-area.y-editor .string,
+.code-area .string {
+    -fx-fill: #A7D96C;
+}
+
+.code-area.y-editor .char,
+.code-area .char {
+    -fx-fill: #C5E88A;
+}
+
+.code-area.y-editor .operator,
+.code-area .operator {
+    -fx-fill: #8CC7FF;
+}
+
+.code-area.y-editor .punct,
+.code-area .punct {
+    -fx-fill: #8D9AAA;
+}
+
+.code-area.y-editor .comment,
+.code-area .comment {
+    -fx-fill: #687787;
+    -fx-font-style: italic;
+}
+
+.code-area.y-editor .syntax-error,
+.code-area .syntax-error,
+.code-area.y-editor .error,
+.code-area .error {
+    -fx-fill: #FF6472;
+    -fx-underline: true;
+}

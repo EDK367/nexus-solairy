@@ -386,6 +386,12 @@
     -fx-fill: -fx-text-primary;
 }
 
+.code-area .syntax-error,
+.code-area .error {
+    -fx-fill: #ff0000;
+    -fx-underline: true;
+}
+
 .bottom-panel {
     -fx-background-color: -fx-panel-bg;
     -fx-border-color: -fx-line-color transparent transparent transparent;

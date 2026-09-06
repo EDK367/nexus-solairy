@@ -31,7 +31,7 @@ public class YIdentationLexer extends YLexer {
             return tokenQueue.poll();
         }
 
-        Token token = super.nextToken();
+        Token token = getNextNonCommentToken();
 
         while (token.getType() != Token.EOF) {
 
@@ -47,7 +47,7 @@ public class YIdentationLexer extends YLexer {
                 atStartOfLine = true;
 
                 if (openedBrackets > 0) {
-                    token = super.nextToken();
+                    token = getNextNonCommentToken();
                     continue;
                 }
                 return token;
@@ -61,7 +61,7 @@ public class YIdentationLexer extends YLexer {
                     // cuantos espacios lleva
                     spaces = calculateIndentation(token.getText());
 
-                    Token next = super.nextToken();
+                    Token next = getNextNonCommentToken();
 
                     // espacios antes de una nueva linea o final de codigo
                     if (next.getType() == NEWLINE || next.getType() == EOF) {
@@ -80,7 +80,7 @@ public class YIdentationLexer extends YLexer {
                 break;
             } else {
                 if (token.getType() == TAB) {
-                    token = super.nextToken();
+                    token = getNextNonCommentToken();
                     continue;
                 }
                 break;
@@ -141,4 +141,11 @@ public class YIdentationLexer extends YLexer {
         return synthetic;
     }
 
+    private Token getNextNonCommentToken() {
+        Token t = super.nextToken();
+        while (t.getType() == LINE_COMMENT || t.getType() == BLOCK_COMMENT) {
+            t = super.nextToken();
+        }
+        return t;
+    }
 }

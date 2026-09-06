@@ -4,8 +4,8 @@ lexer grammar YLexer;
 tokens { INDENT, DEDENT }
 
 // comentarios
-LINE_COMMENT  : '//' ~[\r\n]*  -> skip ;
-BLOCK_COMMENT : '/*' .*? '*/'  -> skip ;
+LINE_COMMENT  : '//' ~[\r\n]*  -> channel(HIDDEN) ;
+BLOCK_COMMENT : '/*' .*? '*/'  -> channel(HIDDEN) ;
 
 // encabezados
 SEC_STRUCT      : '%estructuras'    ;
