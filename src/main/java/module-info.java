@@ -38,6 +38,4 @@ module org.nexus.nexussolairy {
     exports org.nexus.nexussolairy.service.ui;
     exports org.nexus.nexussolairy.ui;
     opens org.nexus.nexussolairy.ui to javafx.fxml;
-    exports com.example.nexusantiquus;
-    exports com.example.nexusantiquus.ui;
 }

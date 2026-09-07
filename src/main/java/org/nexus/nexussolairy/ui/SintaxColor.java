@@ -8,11 +8,7 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
-import org.nexus.nexussolairy.PigLatinLexer;
-import org.nexus.nexussolairy.PigLatinParser;
-import org.nexus.nexussolairy.YLexer;
-import org.nexus.nexussolairy.YParser;
-import org.nexus.nexussolairy.ZetarianoLexer;
+import org.nexus.nexussolairy.*;
 import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.service.parser.YIdentationLexer;
 
@@ -163,8 +159,7 @@ public final class SintaxColor {
             builder.add(Collections.emptyList(), 0);
             return builder.create();
         }
-
-        List<int[]> errorRanges = Collections.emptyList();
+        List<int[]> errorRanges = collectZetarianoErrors(text);
 
         ZetarianoLexer lexer = new ZetarianoLexer(CharStreams.fromString(text));
         lexer.removeErrorListeners();
@@ -281,6 +276,38 @@ public final class SintaxColor {
         return errorRanges;
     }
 
+    private static List<int[]> collectZetarianoErrors(String text) {
+        List<int[]> errorRanges = new ArrayList<>();
+        try {
+            ZetarianoLexer lexer = new ZetarianoLexer(CharStreams.fromString(text));
+            lexer.removeErrorListeners();
+            CommonTokenStream tokens = new CommonTokenStream(lexer);
+            ZetarianoParser parser = new ZetarianoParser(tokens);
+            parser.removeErrorListeners();
+            parser.addErrorListener(new BaseErrorListener() {
+                @Override
+                public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String msg, RecognitionException e) {
+                    int start = -1;
+                    int stop = -1;
+                    if (offendingSymbol instanceof Token t) {
+                        start = t.getStartIndex();
+                        stop = t.getStopIndex();
+                    }
+                    if (start < 0 || stop < start) {
+                        start = getOffset(text, line, charPositionInLine);
+                        stop = start;
+                    }
+                    start = Math.max(0, Math.min(start, text.length() - 1));
+                    stop = Math.max(start, Math.min(stop, text.length() - 1));
+                    errorRanges.add(new int[]{start, stop});
+                }
+            });
+            parser.program();
+        } catch (Throwable ignored) {
+        }
+        return errorRanges;
+    }
+
     private static int getOffset(String text, int line, int charPos) {
         if (text == null || text.isEmpty()) {
             return 0;
@@ -297,11 +324,7 @@ public final class SintaxColor {
         return Math.max(0, Math.min(offset, text.length() - 1));
     }
 
-    private static void addSpanWithErrors(StyleSpansBuilder<Collection<String>> spans,
-                                         int from,
-                                         int to,
-                                         String cssClass,
-                                         List<int[]> errorRanges) {
+    private static void addSpanWithErrors(StyleSpansBuilder<Collection<String>> spans, int from, int to, String cssClass, List<int[]> errorRanges) {
         if (to <= from) {
             return;
         }
@@ -379,7 +402,8 @@ public final class SintaxColor {
 
         return switch (type) {
             case PigLatinLexer.VARIABILES, PigLatinLexer.MAIOR, PigLatinLexer.FINIS_PROG -> "section";
-            case PigLatinLexer.ESTO, PigLatinLexer.SERIES, PigLatinLexer.FINIS, PigLatinLexer.IMPORT, PigLatinLexer.NOVUS -> "decl";
+            case PigLatinLexer.ESTO, PigLatinLexer.SERIES, PigLatinLexer.FINIS, PigLatinLexer.IMPORT,
+                 PigLatinLexer.NOVUS -> "decl";
             case PigLatinLexer.SI, PigLatinLexer.ALITER, PigLatinLexer.DUM, PigLatinLexer.FACERE, PigLatinLexer.PER,
                  PigLatinLexer.PERGE, PigLatinLexer.INTERRUMPE -> "control";
             case PigLatinLexer.NUMERUS, PigLatinLexer.TEXTUM, PigLatinLexer.DECIMALIS, PigLatinLexer.LITTERA,
@@ -388,10 +412,10 @@ public final class SintaxColor {
             case PigLatinLexer.NUMBER, PigLatinLexer.DECIMAL -> "number";
             case PigLatinLexer.STRING -> "string";
             case PigLatinLexer.CHAR -> "char";
-            case PigLatinLexer.NOT, PigLatinLexer.EQ, PigLatinLexer.NEQ, PigLatinLexer.LE, PigLatinLexer.GE, PigLatinLexer.AND, PigLatinLexer.OR,
-                 PigLatinLexer.INC, PigLatinLexer.DEC, PigLatinLexer.READ, PigLatinLexer.PRINT, PigLatinLexer.LT,
-                 PigLatinLexer.GT, PigLatinLexer.PLUS, PigLatinLexer.MINUS, PigLatinLexer.MULT, PigLatinLexer.DIV,
-                 PigLatinLexer.ASSIGN -> "operator";
+            case PigLatinLexer.NOT, PigLatinLexer.EQ, PigLatinLexer.NEQ, PigLatinLexer.LE, PigLatinLexer.GE,
+                 PigLatinLexer.AND, PigLatinLexer.OR, PigLatinLexer.INC, PigLatinLexer.DEC, PigLatinLexer.READ,
+                 PigLatinLexer.PRINT, PigLatinLexer.LT, PigLatinLexer.GT, PigLatinLexer.PLUS, PigLatinLexer.MINUS,
+                 PigLatinLexer.MULT, PigLatinLexer.DIV, PigLatinLexer.ASSIGN -> "operator";
             case PigLatinLexer.COLON, PigLatinLexer.SEMI, PigLatinLexer.COMMA, PigLatinLexer.DOT, PigLatinLexer.LBRACE,
                  PigLatinLexer.RBRACE, PigLatinLexer.LBRACK, PigLatinLexer.RBRACK, PigLatinLexer.LPAREN,
                  PigLatinLexer.RPAREN -> "punct";
@@ -408,9 +432,8 @@ public final class SintaxColor {
         return switch (type) {
             case YLexer.SEC_STRUCT, YLexer.SEC_FUNCTION -> "section";
             case YLexer.ESTRUCTURA, YLexer.DEFINIR -> "decl";
-            case YLexer.SI, YLexer.ENTONCES, YLexer.SINO, YLexer.CONTRARIO, YLexer.ELEGIR, YLexer.CASO,
-                 YLexer.SIEMPRE, YLexer.PARA, YLexer.MIENTRAS, YLexer.HACER, YLexer.ROMPER,
-                 YLexer.CONTINUAR -> "control";
+            case YLexer.SI, YLexer.ENTONCES, YLexer.SINO, YLexer.CONTRARIO, YLexer.ELEGIR, YLexer.CASO, YLexer.SIEMPRE,
+                 YLexer.PARA, YLexer.MIENTRAS, YLexer.HACER, YLexer.ROMPER, YLexer.CONTINUAR -> "control";
             case YLexer.LEER, YLexer.IMPRIMIR, YLexer.RETORNAR -> "function";
             case YLexer.CADENA, YLexer.ENTERO, YLexer.FLOTANTE, YLexer.CARACTER, YLexer.BOOL -> "type";
             case YLexer.VERDADERO, YLexer.FALSO -> "boolean";
@@ -444,11 +467,12 @@ public final class SintaxColor {
             case ZetarianoLexer.NUMBER, ZetarianoLexer.DECIMAL -> "number";
             case ZetarianoLexer.STRING -> "string";
             case ZetarianoLexer.CHAR -> "char";
-            case ZetarianoLexer.ADD_ASSIGN, ZetarianoLexer.SUB_ASSIGN, ZetarianoLexer.MUL_ASSIGN, ZetarianoLexer.DIV_ASSIGN,
-                 ZetarianoLexer.NOT, ZetarianoLexer.AND, ZetarianoLexer.OR, ZetarianoLexer.EQ, ZetarianoLexer.NEQ,
-                 ZetarianoLexer.LE, ZetarianoLexer.GE, ZetarianoLexer.LT, ZetarianoLexer.GT, ZetarianoLexer.INC,
-                 ZetarianoLexer.DEC, ZetarianoLexer.PLUS, ZetarianoLexer.MINUS, ZetarianoLexer.MULT, ZetarianoLexer.DIV,
-                 ZetarianoLexer.MOD, ZetarianoLexer.ASSIGN, ZetarianoLexer.QUESTION -> "operator";
+            case ZetarianoLexer.ADD_ASSIGN, ZetarianoLexer.SUB_ASSIGN, ZetarianoLexer.MUL_ASSIGN,
+                 ZetarianoLexer.DIV_ASSIGN, ZetarianoLexer.NOT, ZetarianoLexer.AND, ZetarianoLexer.OR,
+                 ZetarianoLexer.EQ, ZetarianoLexer.NEQ, ZetarianoLexer.LE, ZetarianoLexer.GE, ZetarianoLexer.LT,
+                 ZetarianoLexer.GT, ZetarianoLexer.INC, ZetarianoLexer.DEC, ZetarianoLexer.PLUS, ZetarianoLexer.MINUS,
+                 ZetarianoLexer.MULT, ZetarianoLexer.DIV, ZetarianoLexer.MOD, ZetarianoLexer.ASSIGN,
+                 ZetarianoLexer.QUESTION -> "operator";
             case ZetarianoLexer.COLON, ZetarianoLexer.SEMI, ZetarianoLexer.COMMA, ZetarianoLexer.DOT,
                  ZetarianoLexer.LBRACE, ZetarianoLexer.RBRACE, ZetarianoLexer.LBRACK, ZetarianoLexer.RBRACK,
                  ZetarianoLexer.LPAREN, ZetarianoLexer.RPAREN -> "punct";

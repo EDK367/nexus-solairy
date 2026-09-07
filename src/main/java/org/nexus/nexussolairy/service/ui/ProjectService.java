@@ -167,65 +167,91 @@ public class ProjectService {
                                 imprimir("Otro")
                                 romper
                     """;
-            case ZETARIANO -> """
-                    public class Principal {
-                        // Atributos
-                        int edad = 25;
-                        double altura = 1.75;
-                        char inicial = 'A';
-                        boolean activo = true;
-                        String nombre = "Resistencia";
-                    
-                        public Principal() {
-                            // Arreglos
-                            int[] calificaciones = new int[5];
-                            String[] nombres = {"Carlos", "Ana", "Pedro"};
-                            int[][] matriz = new int[3][3];
-                    
-                            // Objetos
-                            Persona alumno1 = new Persona("Carlos", 20);
-                    
-                            // Operadores compuestos
-                            int x = 5;
-                            x += 3;
-                            x -= 2;
-                            x *= 2;
-                    
-                            // Ternario
-                            String mensaje = (edad >= 18) ? "Adulto" : "Menor";
-                    
-                            // Ciclo con break y continue
-                            for (int i = 0; i < 10; i++) {
-                                if (i % 2 == 0) continue;
-                                if (i > 7) break;
-                                print(i);
-                            }
-                    
-                            // Entrada/salida
-                            println("Hola Zetarianos");
-                            String entrada = readln();
-                        }
+            case ZETARIANO -> """ 
+            public class Persona {
+                String nombre;
+                int edad;
+
+                public Persona(String nombreParametro, int edadParametro) {
+                    nombre = nombreParametro;
+                    edad = edadParametro;
+                }
+
+                public Persona() {
+                    nombre = "Sin nombre";
+                    edad = 0;
+                }
+
+                public void saludar() {
+                    println("Hola! Me llamo " + nombre);
+                }
+
+                public int calcularAnioNacimiento(int anioActual) {
+                    return anioActual - edad;
+                }
+            }
+
+            public class Principal {
+                public static void main(String[] args) {
+                    int a = 10;
+                    int b = 3;
+                    int suma = a + b;
+                    boolean esMayor = (a > b) && (a != 0);
+
+                    int[] numeros = {10, 20, 30, 40, 50};
+                    int[] calificaciones = new int[5];
+                    String[] nombres = {"Carlos", "Ana", "Pedro"};
+                    int[][] matriz = new int[3][3];
+
+                    String mensaje = (esMayor) ? "Mayor" : "Menor";
+
+                    Persona p1 = new Persona("Carlos", 25);
+                    Persona p2 = new Persona();
+                    int sumaEdades = p1.edad + p2.edad;
+
+                    if (p1 == null) {
+                        print("Nulo");
+                    } else if (edad >= 18) {
+                        println("Adulto");
+                    } else {
+                        println("Menor");
                     }
-                    
-                    public class Persona {
-                        String nombre;
-                        int edad;
-                    
-                        public Persona(String n, int e) {
-                            nombre = n;
-                            edad = e;
-                        }
-                    
-                        public Persona() {
-                            nombre = "Sin nombre";
-                            edad = 0;
-                        }
-                    
-                        public int obtenerEdad() {
-                            return edad;
-                        }
+
+                    for (int i = 0; i < 5; i++) {
+                        if (i == 2) continue;
+                        if (i == 4) break;
+                        println(i);
                     }
-                    """;
+
+                    for (;;) {
+                        println("Bucle infinito escapado");
+                        break;
+                    }
+
+                    int contador = 0;
+                    while (contador < 3) {
+                        contador++;
+                    }
+
+                    int intentos = 0;
+                    do {
+                        intentos++;
+                        if (intentos == 2) break;
+                    } while (intentos < 5);
+
+                    String entrada = readln();
+                    println(entrada);
+
+                    int x = 5;
+                    x += 3;
+                    x -= 2;
+                    x *= 2;
+                    x /= 2;
+                    x++;
+                    x--;
+                }
+            }
+            """;
             default -> "";
         };
     }
