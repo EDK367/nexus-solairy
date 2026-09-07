@@ -40,6 +40,8 @@ import org.nexus.nexussolairy.service.parser.ParserService;
 import org.nexus.nexussolairy.service.ui.FileService;
 import org.nexus.nexussolairy.service.ui.ProjectService;
 import org.nexus.nexussolairy.service.ui.WorkspaceService;
+import org.nexus.nexussolairy.service.analysis.AnalysisPipeline;
+import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.utils.ResultLexer;
 import org.nexus.nexussolairy.view.*;
 import org.nexus.nexussolairy.view.utils.CommandItem;
@@ -204,6 +206,7 @@ public class MainController implements Initializable {
     private Timeline stackAutoPlayTimeline;
     private double astZoom = 1.0;
     private AstNodeViewModel selectedAstNode = null;
+    private final AnalysisPipeline analysisPipeline = new AnalysisPipeline();
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -389,6 +392,7 @@ public class MainController implements Initializable {
         colProbCol.setCellValueFactory(c -> c.getValue().columnProperty());
         colProbMsg.setCellValueFactory(c -> c.getValue().messageProperty());
 
+        problemsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         problemsTable.setItems(filtered);
         problemsTable.setPlaceholder(new Label("No problems detected in workspace"));
     }
@@ -416,6 +420,7 @@ public class MainController implements Initializable {
         colSymLine.setCellValueFactory(c -> c.getValue().lineProperty());
         colSymCol.setCellValueFactory(c -> c.getValue().columnProperty());
 
+        symbolsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         symbolsTable.setItems(filtered);
         symbolsTable.setPlaceholder(new Label("No symbols available in symbol table"));
     }
@@ -741,7 +746,7 @@ public class MainController implements Initializable {
             case "SUCCESS" -> "[OK]      ";
             case "ERROR" -> "[ERROR]   ";
             case "RESULT" -> "[RESULT]  ";
-            default -> "> ";
+            default -> "◎ ";
         };
 
         String styleClass = switch (type) {
@@ -1093,16 +1098,73 @@ public class MainController implements Initializable {
 
     @FXML
     public void handleRunActiveFile() {
-        handleRunProject();
-    }
+        EditorTabModel activeTab = workspaceService.getActiveTab();
+        if (activeTab == null) {
+            workspaceService.notifyUser("No active file to run");
+            return;
+        }
 
+        CodeArea codeArea = codeAreaMap.get(activeTab);
+        if (codeArea == null) {
+            workspaceService.notifyUser("No editor found for active file");
+            return;
+        }
+
+        String source = codeArea.getText();
+        LanguageType lang = activeTab.getLanguageType();
+        String targetName = activeTab.getTitle();
+
+        bottomTabPane.getSelectionModel().select(terminalTab);
+        terminalOutput.clear();
+        appendTerminalInfo("Executing file: " + targetName + " [" + lang.getDisplayName() + "]");
+
+        var session = workspaceService.createNewExecutionSession(targetName, lang);
+
+        var result = analysisPipeline.analyze(
+                source,
+                lang,
+                () -> "",
+                line -> appendTerminalLog("PRINT", line)
+        );
+
+        if (result.getLexicalResult() != null) {
+            tokensList.setAll(result.getLexicalResult().tokens);
+            lexerErrorsList.setAll(result.getLexicalResult().errors);
+            setBadgeStyle(tokensBadge, result.getLexicalResult().isValid() ? "badge-success" : "badge-warning", "Tokens: " + result.getLexicalResult().tokens.size());
+            setBadgeStyle(errorsBadge, result.getLexicalResult().isValid() ? "badge-info" : "badge-danger", "Errores: " + result.getLexicalResult().errors.size());
+        }
+
+        syntaxErrorsList.setAll(result.getSyntacticErrors());
+        semanticErrorsList.setAll(result.getSemanticErrors());
+
+        List<SymbolViewModel> symViewModels = new ArrayList<>();
+        for (Symbol sym : result.getSymbols()) {
+            symViewModels.add(new SymbolViewModel(
+                    sym.getName(),
+                    sym.getType() != null ? sym.getType().name() : "",
+                    sym.getKind() != null ? sym.getKind().name() : "",
+                    sym.getScope() != null ? sym.getScope().name() : "",
+                    sym.getValue() != null ? sym.getValue().toString() : "null",
+                    sym.getLine(),
+                    sym.getColumn()
+            ));
+        }
+        symbolsList.setAll(symViewModels);
+
+        if (result.isValid()) {
+            appendTerminalSuccess("Execution completed successfully");
+            session.setStatus(ExecutionSession.SessionStatus.FINISHED);
+            workspaceService.notifyUser("Execution successful: " + targetName);
+        } else {
+            appendTerminalError(result.getMessage());
+            session.setStatus(ExecutionSession.SessionStatus.ERROR);
+            workspaceService.notifyUser("Execution failed: " + targetName);
+        }
+    }
 
     @FXML
     public void handleAnalyze() {
-        bottomTabPane.getSelectionModel().select(terminalTab);
-        appendTerminalInfo("Pipeline: Lexical -> Syntactic -> Semantic Check starting...");
-        appendTerminalSuccess("Pipeline check completed. 0 errors.");
-        workspaceService.notifyUser("Analysis pipeline executed");
+        handleRunActiveFile();
     }
 
     // corre el archivo actual para el lexer

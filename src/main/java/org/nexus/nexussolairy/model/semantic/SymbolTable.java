@@ -12,8 +12,8 @@ public class SymbolTable {
 
     private final List<Scope> closedScopes = new ArrayList<>();
 
-    // struct
-    //private final Map<String, StructInfo> structRegistry = new HashMap<>();
+    // mapa para contener los struct
+    private final Map<String, StructInfo> structRegistry = new HashMap<>();
 
     public SymbolTable() {
         this.globalScope = new Scope("global", null);
@@ -142,6 +142,23 @@ public class SymbolTable {
             }
         }
         return Collections.unmodifiableList(locals);
+    }
+
+    // registros para structs
+    public void registerStruct(StructInfo structInfo) {
+        structRegistry.put(structInfo.getName(), structInfo);
+    }
+
+    public StructInfo lookupStruct(String name) {
+        return structRegistry.get(name);
+    }
+
+    public boolean structExists(String name) {
+        return structRegistry.containsKey(name);
+    }
+
+    public Map<String, StructInfo> getStructRegistry() {
+        return Collections.unmodifiableMap(structRegistry);
     }
 
 }

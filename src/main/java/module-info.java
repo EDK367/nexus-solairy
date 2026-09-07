@@ -12,6 +12,7 @@ module org.nexus.nexussolairy {
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
     requires org.antlr.antlr4.runtime;
+    requires org.junit.jupiter.api;
 
     opens org.nexus.nexussolairy to javafx.fxml;
     opens org.nexus.nexussolairy.controller to javafx.fxml;
@@ -38,4 +39,13 @@ module org.nexus.nexussolairy {
     exports org.nexus.nexussolairy.service.ui;
     exports org.nexus.nexussolairy.ui;
     opens org.nexus.nexussolairy.ui to javafx.fxml;
+    exports org.nexus.nexussolairy.visitor;
+    exports org.nexus.nexussolairy.visitor.pigLatin;
+    exports org.nexus.nexussolairy.service.analysis;
+    exports org.nexus.nexussolairy.patron;
+    exports org.nexus.nexussolairy.visitor.pigLatin.expression;
+    exports org.nexus.nexussolairy.visitor.pigLatin.variable;
+    exports org.nexus.nexussolairy.visitor.pigLatin.error;
+    exports org.nexus.nexussolairy.visitor.pigLatin.statement;
+    exports org.nexus.nexussolairy.visitor.pigLatin.io;
 }

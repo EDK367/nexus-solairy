@@ -78,8 +78,8 @@
 
                     <Separator orientation="VERTICAL"/>
 
-                    <!-- ejecucion -->
                     <Button text="▶ Run" styleClass="btn, btn-sm, btn-accent-cyan" onAction="#handleRunProject"/>
+                    <Button text="▶ Run File" styleClass="btn, btn-sm, btn-accent-cyan" onAction="#handleRunActiveFile"/>
 
                     <Separator orientation="VERTICAL"/>
 
