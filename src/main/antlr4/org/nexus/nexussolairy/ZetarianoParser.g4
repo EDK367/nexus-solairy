@@ -207,7 +207,7 @@ unaryExpr : INC unaryExpr
 
 postfixExpr : primaryExpr
             | postfixExpr DOT ID
-            | postfixExpr DOT ID LPAREN argList RPAREN
+            | postfixExpr DOT ID LPAREN argList? RPAREN
             | postfixExpr LBRACK expression RBRACK
             | postfixExpr INC
             | postfixExpr DEC
@@ -217,7 +217,7 @@ primaryExpr : literal
             | NULL
             | READ LPAREN RPAREN
             | ID
-            | ID LPAREN argList RPAREN
+            | ID LPAREN argList? RPAREN
             | LPAREN expression RPAREN
             | newExpr
             | arrayInit

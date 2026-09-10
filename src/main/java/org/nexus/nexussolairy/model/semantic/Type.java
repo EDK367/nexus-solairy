@@ -19,6 +19,10 @@ public class Type {
     public static final Type STRUCT = new Type(DataType.STRUCT, "struct");
     public static final Type VOID = new Type(DataType.VOID, "void");
     public static final Type ERROR = new Type(DataType.ERROR, "error");
+    public static final Type INT = new Type(DataType.ENTERO, "int");
+    public static final Type DOUBLE = new Type(DataType.DECIMALIS, "double");
+    public static final Type CHAR_T = new Type(DataType.CARACTER, "char");
+    public static final Type STRING_T = new Type(DataType.CADENA, "string");
 
     private final DataType dataType;
     private final String name;

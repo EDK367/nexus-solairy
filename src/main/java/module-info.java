@@ -54,4 +54,10 @@ module org.nexus.nexussolairy {
     exports org.nexus.nexussolairy.visitor.yLanguage.statement;
     exports org.nexus.nexussolairy.visitor.yLanguage.variable;
     exports org.nexus.nexussolairy.visitor.yLanguage.io;
+    exports org.nexus.nexussolairy.visitor.zetariano;
+    exports org.nexus.nexussolairy.visitor.zetariano.error;
+    exports org.nexus.nexussolairy.visitor.zetariano.expression;
+    exports org.nexus.nexussolairy.visitor.zetariano.statement;
+    exports org.nexus.nexussolairy.visitor.zetariano.variable;
+    exports org.nexus.nexussolairy.visitor.zetariano.io;
 }

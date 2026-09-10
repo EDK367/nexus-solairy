@@ -5,6 +5,8 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.nexus.nexussolairy.PigLatinLexer;
 import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.YParser;
+import org.nexus.nexussolairy.ZetarianoLexer;
+import org.nexus.nexussolairy.ZetarianoParser;
 import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.semantic.SemanticError;
 import org.nexus.nexussolairy.model.semantic.Symbol;
@@ -20,6 +22,7 @@ import org.nexus.nexussolairy.visitor.InputProvider;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.visitor.pigLatin.PigLatinVisitorImpl;
 import org.nexus.nexussolairy.visitor.yLanguage.YVisitorImpl;
+import org.nexus.nexussolairy.visitor.zetariano.ZetarianoVisitorImpl;
 
 import java.util.Collections;
 import java.util.List;
@@ -28,14 +31,22 @@ import java.util.function.Consumer;
 public class AnalysisPipeline {
 
     public PipelineResult analyze(String source) {
-        return analyze(source, LanguageType.PIG_LATIN, () -> "", null);
+        return analyze(source, null, LanguageType.PIG_LATIN, () -> "", null);
     }
 
     public PipelineResult analyze(String source, LanguageType language) {
-        return analyze(source, language, () -> "", null);
+        return analyze(source, null, language, () -> "", null);
+    }
+
+    public PipelineResult analyze(String source, String fileName, LanguageType language) {
+        return analyze(source, fileName, language, () -> "", null);
     }
 
     public PipelineResult analyze(String source, LanguageType language, InputProvider inputProvider, Consumer<String> livePrinter) {
+        return analyze(source, null, language, inputProvider, livePrinter);
+    }
+
+    public PipelineResult analyze(String source, String fileName, LanguageType language, InputProvider inputProvider, Consumer<String> livePrinter) {
         PipelineResult result = new PipelineResult();
 
         LexerService lexer = LexerFactory.create(language);
@@ -103,6 +114,28 @@ public class AnalysisPipeline {
             result.setPrintOutput(yVisitor.getPrintOutput());
 
             if (yVisitor.hasErrors()) {
+                result.setValid(false);
+                result.setMessage("Errores semánticos detectados.");
+                return result;
+            }
+        } else if (visitor instanceof ZetarianoVisitorImpl zVisitor) {
+            if (fileName != null) {
+                zVisitor.setFileName(fileName);
+            }
+            ZetarianoLexer zLexer = new ZetarianoLexer(CharStreams.fromString(source));
+            zLexer.removeErrorListeners();
+            CommonTokenStream tokens = new CommonTokenStream(zLexer);
+            ZetarianoParser zParser = new ZetarianoParser(tokens);
+            zParser.removeErrorListeners();
+            ZetarianoParser.ProgramContext tree = zParser.program();
+
+            zVisitor.visit(tree);
+
+            result.setSymbols(zVisitor.getSymbolTable().getAllVariablesLog());
+            result.setSemanticErrors(zVisitor.getErrors());
+            result.setPrintOutput(zVisitor.getPrintOutput());
+
+            if (zVisitor.hasErrors()) {
                 result.setValid(false);
                 result.setMessage("Errores semánticos detectados.");
                 return result;

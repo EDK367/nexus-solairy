@@ -5,6 +5,7 @@ import org.nexus.nexussolairy.visitor.InputProvider;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.visitor.pigLatin.PigLatinVisitorImpl;
 import org.nexus.nexussolairy.visitor.yLanguage.YVisitorImpl;
+import org.nexus.nexussolairy.visitor.zetariano.ZetarianoVisitorImpl;
 
 import java.util.function.Consumer;
 
@@ -19,6 +20,7 @@ public class VisitorFactory {
         return switch (language) {
             case PIG_LATIN -> new PigLatinVisitorImpl(inputProvider, livePrinter);
             case Y_LANG -> new YVisitorImpl(inputProvider, livePrinter);
+            case ZETARIANO -> new ZetarianoVisitorImpl(inputProvider, livePrinter);
             default -> null;
         };
     }

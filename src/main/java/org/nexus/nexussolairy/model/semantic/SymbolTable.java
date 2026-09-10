@@ -20,6 +20,11 @@ public class SymbolTable {
         this.currentScope = globalScope;
     }
 
+    public SymbolTable(Scope globalScope) {
+        this.globalScope = globalScope != null ? globalScope : new Scope("global", null);
+        this.currentScope = this.globalScope;
+    }
+
     public void pushScope(String name) {
         currentScope = new Scope(name, currentScope);
     }

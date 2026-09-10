@@ -19,7 +19,7 @@ public class ClassSymbol extends Symbol {
     }
 
     public ClassSymbol(String name, Scope enclosing, int line, int column) {
-        super(name, DataType.STRUCT, SymbolKind.CLASS, ScopeKind.GLOBAL, null, line, column, null, null, null, null, name);
+        super(name, DataType.CLASS, SymbolKind.CLASS, ScopeKind.GLOBAL, null, line, column, null, null, null, null, name);
         this.enclosingScope = enclosing;
     }
 
@@ -214,6 +214,11 @@ public class ClassSymbol extends Symbol {
                 return all;
             }
         };
+    }
+
+    @Override
+    public Type getSemanticType() {
+        return new Type(getName());
     }
 }
 

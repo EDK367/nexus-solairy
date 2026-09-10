@@ -163,12 +163,20 @@ public class TypeChecker {
             case "-":
             case "*":
             case "/":
+            case "%":
                 if (isNumeric(left) && isNumeric(right)) return getWiderNumeric(left, right);
                 return Type.ERROR;
             case "==":
             case "!=":
                 if (left.equals(right)) return Type.BOOL;
                 if (isNumeric(left) && isNumeric(right)) return Type.BOOL;
+                if ((left.getName().equals("null") && (right.getDataType() == DataType.STRUCT || isString(right)))
+                        || (right.getName().equals("null") && (left.getDataType() == DataType.STRUCT || isString(left)))) {
+                    return Type.BOOL;
+                }
+                if (left.getDataType() == DataType.STRUCT && right.getDataType() == DataType.STRUCT) {
+                    return Type.BOOL;
+                }
                 return Type.ERROR;
             case "<":
             case ">":
@@ -241,6 +249,8 @@ public class TypeChecker {
 
         String tn = target.getName();
         String sn = source.getName();
+
+        if (sn.equals("null") && (target.getDataType() == DataType.STRUCT || isString(target))) return true;
 
         // Coerción numérica ascendente
         if ((tn.equals("flotante") || tn.equals("decimalis") || tn.equals("double"))

@@ -112,4 +112,13 @@ public class Symbol {
 
 
     public String getStructTypeName() { return structTypeName; }
+    public Type getSemanticType() {
+        if (structTypeName != null && !structTypeName.isEmpty()) {
+            return new Type(structTypeName);
+        }
+        if (type != null) {
+            return new Type(type);
+        }
+        return Type.ERROR;
+    }
 }

@@ -14,6 +14,7 @@ public enum DataType {
     BOOL(1),
     STRUCT(0),
     VOID(0),
+    CLASS(0),
     UNKNOWN(0),
     ERROR(-1);
 
@@ -45,7 +46,8 @@ public enum DataType {
             case "caracter", "char" -> CARACTER;
             case "bool" -> BOOL;
             case "boolean" -> BOOLEAN;
-            case "structura", "estructura" -> STRUCT;
+            case "structura" -> STRUCT;
+            case "class" -> CLASS;
             case "void" -> VOID;
             default -> ERROR;
         };

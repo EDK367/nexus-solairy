@@ -47,4 +47,16 @@ public class SemanticError {
     public SimpleStringProperty messageProperty() {
         return message;
     }
+
+    public boolean contains(CharSequence s) {
+        if (s == null) return false;
+        String m = getMessage();
+        String t = getType();
+        return (m != null && m.contains(s)) || (t != null && t.contains(s));
+    }
+
+    @Override
+    public String toString() {
+        return "Linea " + getLine() + ": " + getMessage();
+    }
 }

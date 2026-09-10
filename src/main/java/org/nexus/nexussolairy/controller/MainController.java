@@ -488,6 +488,7 @@ public class MainController implements Initializable {
         colSemType.setCellValueFactory(c -> c.getValue().typeProperty());
         colSemMsg.setCellValueFactory(c -> c.getValue().messageProperty());
 
+        semanticTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         semanticTable.setItems(semanticErrorsList);
         semanticTable.setPlaceholder(new Label("No semantic errors detected"));
     }
@@ -503,6 +504,7 @@ public class MainController implements Initializable {
         colQuadArg2.setCellValueFactory(c -> c.getValue().arg2Property());
         colQuadRes.setCellValueFactory(c -> c.getValue().resultProperty());
 
+        quadruplesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         quadruplesTable.setItems(quadruplesList);
         quadruplesTable.setPlaceholder(new Label("No quadruples generated"));
     }
@@ -522,6 +524,7 @@ public class MainController implements Initializable {
         colHeapVal.setCellValueFactory(c -> c.getValue().valueProperty());
         colHeapDetails.setCellValueFactory(c -> c.getValue().detailsProperty());
 
+        heapTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         heapTable.setItems(heapList);
         heapTable.setPlaceholder(new Label("Heap memory empty. Run program to allocate runtime objects."));
     }
@@ -1122,6 +1125,7 @@ public class MainController implements Initializable {
 
         var result = analysisPipeline.analyze(
                 source,
+                targetName,
                 lang,
                 () -> "",
                 line -> appendTerminalLog("PRINT", line)
