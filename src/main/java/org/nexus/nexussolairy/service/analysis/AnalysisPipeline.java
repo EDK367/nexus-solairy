@@ -4,6 +4,7 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.nexus.nexussolairy.PigLatinLexer;
 import org.nexus.nexussolairy.PigLatinParser;
+import org.nexus.nexussolairy.YParser;
 import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.semantic.SemanticError;
 import org.nexus.nexussolairy.model.semantic.Symbol;
@@ -13,10 +14,12 @@ import org.nexus.nexussolairy.patron.ParserFactory;
 import org.nexus.nexussolairy.patron.VisitorFactory;
 import org.nexus.nexussolairy.service.grammar.LexerService;
 import org.nexus.nexussolairy.service.parser.ParserService;
+import org.nexus.nexussolairy.service.parser.YIdentationLexer;
 import org.nexus.nexussolairy.utils.ResultLexer;
 import org.nexus.nexussolairy.visitor.InputProvider;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.visitor.pigLatin.PigLatinVisitorImpl;
+import org.nexus.nexussolairy.visitor.yLanguage.YVisitorImpl;
 
 import java.util.Collections;
 import java.util.List;
@@ -81,6 +84,25 @@ public class AnalysisPipeline {
             result.setPrintOutput(pigVisitor.getPrintOutput());
 
             if (pigVisitor.hasErrors()) {
+                result.setValid(false);
+                result.setMessage("Errores semánticos detectados.");
+                return result;
+            }
+        } else if (visitor instanceof YVisitorImpl yVisitor) {
+            YIdentationLexer yLexer = new YIdentationLexer(CharStreams.fromString(source));
+            yLexer.removeErrorListeners();
+            CommonTokenStream tokens = new CommonTokenStream(yLexer);
+            YParser yParser = new YParser(tokens);
+            yParser.removeErrorListeners();
+            YParser.ProgramContext tree = yParser.program();
+
+            yVisitor.visit(tree);
+
+            result.setSymbols(yVisitor.getSymbolTable().getAllVariablesLog());
+            result.setSemanticErrors(yVisitor.getErrors());
+            result.setPrintOutput(yVisitor.getPrintOutput());
+
+            if (yVisitor.hasErrors()) {
                 result.setValid(false);
                 result.setMessage("Errores semánticos detectados.");
                 return result;

@@ -4,6 +4,7 @@ import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.visitor.InputProvider;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.visitor.pigLatin.PigLatinVisitorImpl;
+import org.nexus.nexussolairy.visitor.yLanguage.YVisitorImpl;
 
 import java.util.function.Consumer;
 
@@ -17,6 +18,7 @@ public class VisitorFactory {
         if (language == null) return null;
         return switch (language) {
             case PIG_LATIN -> new PigLatinVisitorImpl(inputProvider, livePrinter);
+            case Y_LANG -> new YVisitorImpl(inputProvider, livePrinter);
             default -> null;
         };
     }
