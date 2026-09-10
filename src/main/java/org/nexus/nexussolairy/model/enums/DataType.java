@@ -1,12 +1,17 @@
 package org.nexus.nexussolairy.model.enums;
 
-// clase enum temporal se modificara con los cambios
+// clase enum para la jerarquia y los valores
 public enum DataType {
     TEXTUM(5),
+    CADENA(5),
     DECIMALIS(4),
+    FLOTANTE(4),
     NUMERUS(3),
+    ENTERO(3),
     LITTERA(2),
+    CARACTER(2),
     BOOLEAN(1),
+    BOOL(1),
     STRUCT(0),
     VOID(0),
     UNKNOWN(0),
@@ -22,23 +27,36 @@ public enum DataType {
         return hierarchy;
     }
 
+    public String getName() {
+        return name().toLowerCase();
+    }
+
     // conversion de tipo primitivo a DataType
     public static DataType typeToken(String token) {
-        return switch (token) {
+        if (token == null) return ERROR;
+        return switch (token.toLowerCase()) {
             case "textum" -> TEXTUM;
-            case "decimalis" -> DECIMALIS;
+            case "cadena", "string" -> CADENA;
+            case "decimalis", "double" -> DECIMALIS;
+            case "flotante", "float" -> FLOTANTE;
             case "numerus" -> NUMERUS;
+            case "entero", "int" -> ENTERO;
             case "littera" -> LITTERA;
-            case "bool" -> BOOLEAN;
-            case "structura" -> STRUCT;
+            case "caracter", "char" -> CARACTER;
+            case "bool" -> BOOL;
+            case "boolean" -> BOOLEAN;
+            case "structura", "estructura" -> STRUCT;
+            case "void" -> VOID;
             default -> ERROR;
         };
     }
 
     // conversion de booleanos
     public static DataType typeTokenBool(String token) {
-        return switch (token) {
-            case "verum", "falsus" -> BOOLEAN;
+        if (token == null) return ERROR;
+        return switch (token.toLowerCase()) {
+            case "verum", "falsus", "true", "false" -> BOOLEAN;
+            case "verdadero", "falso" -> BOOL;
             default -> ERROR;
         };
     }

@@ -48,4 +48,10 @@ module org.nexus.nexussolairy {
     exports org.nexus.nexussolairy.visitor.pigLatin.error;
     exports org.nexus.nexussolairy.visitor.pigLatin.statement;
     exports org.nexus.nexussolairy.visitor.pigLatin.io;
+    exports org.nexus.nexussolairy.visitor.yLanguage;
+    exports org.nexus.nexussolairy.visitor.yLanguage.error;
+    exports org.nexus.nexussolairy.visitor.yLanguage.expression;
+    exports org.nexus.nexussolairy.visitor.yLanguage.statement;
+    exports org.nexus.nexussolairy.visitor.yLanguage.variable;
+    exports org.nexus.nexussolairy.visitor.yLanguage.io;
 }
