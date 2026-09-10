@@ -24,6 +24,13 @@ public class SymbolTable {
         currentScope = new Scope(name, currentScope);
     }
 
+    // funcion para cambiar el tipo actual de scope
+    public void pushScope(Scope scope) {
+        if (scope != null) {
+            currentScope = scope;
+        }
+    }
+
     public void popScope() {
         if (currentScope != globalScope) {
             closedScopes.add(currentScope);
@@ -159,6 +166,27 @@ public class SymbolTable {
 
     public Map<String, StructInfo> getStructRegistry() {
         return Collections.unmodifiableMap(structRegistry);
+    }
+
+    // registros para clases
+    private final Map<String, ClassSymbol> classRegistry = new HashMap<>();
+
+    public void registerClass(ClassSymbol classSymbol) {
+        if (classSymbol != null) {
+            classRegistry.put(classSymbol.getName(), classSymbol);
+        }
+    }
+
+    public ClassSymbol lookupClass(String name) {
+        return classRegistry.get(name);
+    }
+
+    public boolean classExists(String name) {
+        return classRegistry.containsKey(name);
+    }
+
+    public Map<String, ClassSymbol> getClassRegistry() {
+        return Collections.unmodifiableMap(classRegistry);
     }
 
 }

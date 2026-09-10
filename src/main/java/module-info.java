@@ -12,7 +12,7 @@ module org.nexus.nexussolairy {
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
     requires org.antlr.antlr4.runtime;
-    requires org.junit.jupiter.api;
+    requires jdk.dynalink;
 
     opens org.nexus.nexussolairy to javafx.fxml;
     opens org.nexus.nexussolairy.controller to javafx.fxml;

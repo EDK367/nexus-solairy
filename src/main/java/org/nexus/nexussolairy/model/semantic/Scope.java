@@ -50,4 +50,20 @@ public class Scope {
         return parent;
     }
 
+    public Symbol resolve(String name) {
+        return lookup(name);
+    }
+
+    public boolean define(Symbol symbol) {
+        return declare(symbol);
+    }
+
+    public String getScopeName() {
+        return name;
+    }
+
+    public Scope getEnclosingScope() {
+        return parent;
+    }
+
 }

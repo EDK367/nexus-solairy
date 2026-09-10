@@ -5,5 +5,6 @@ public enum SymbolKind {
     ARRAY,
     FUNCTION,
     PARAMETER,
-    STRUCT
+    STRUCT,
+    CLASS
 }
