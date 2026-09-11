@@ -46,14 +46,7 @@ public class ImportResolver {
         if (globalScope == null) return importedSymbols;
 
         for (Map.Entry<String, Symbol> entry : globalScope.getSymbols().entrySet()) {
-            Symbol sym = entry.getValue();
-            if (sym instanceof org.nexus.nexussolairy.model.semantic.ClassSymbol cls) {
-                for (Symbol field : cls.getFields().values()) {
-                    importedSymbols.add(field);
-                }
-            } else {
-                importedSymbols.add(sym);
-            }
+            importedSymbols.add(entry.getValue());
         }
 
         return importedSymbols;

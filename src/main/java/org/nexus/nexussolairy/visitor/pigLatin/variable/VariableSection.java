@@ -66,8 +66,10 @@ public class VariableSection {
             String varName = ctx.ID(0).getText();
             String typeName = ctx.ID(1).getText();
 
-            if (!visitor.getSymbolTable().structExists(typeName)) {
-                visitor.reportError(line, col, TypeErrorSemantic.UNDECLARED, "La estructura '" + typeName + "' no ha sido declarada");
+            // buscar struct o clase externa
+            boolean tipoExiste = visitor.getSymbolTable().structExists(typeName) || visitor.getSymbolTable().classExists(typeName);
+            if (!tipoExiste) {
+                visitor.reportError(line, col, TypeErrorSemantic.UNDECLARED, "La estructura/clase '" + typeName + "' no ha sido declarada. " + "Verifique que fue importada desde un archivo .y o .z");
             }
 
             if (visitor.getSymbolTable().lookupLocal(varName) != null) {

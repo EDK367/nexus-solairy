@@ -159,6 +159,7 @@ public class AnalysisPipeline {
 
         ImportResolver resolver = new ImportResolver();
         Scope globalScope = new GlobalScope();
+        List<Symbol> allImported = new ArrayList<>();
 
         for (String importPath : importPaths) {
             List<Symbol> imported = resolver.resolveImport(importPath, baseDirectory);
@@ -167,11 +168,21 @@ public class AnalysisPipeline {
             } else {
                 for (Symbol sym : imported) {
                     globalScope.declare(sym);
+                    allImported.add(sym);
                 }
             }
         }
 
-        return new SymbolTable(globalScope);
+        SymbolTable tableGlobal = new SymbolTable(globalScope);
+
+        // registrar la clase
+        for (Symbol symbol : allImported) {
+            if (symbol instanceof ClassSymbol cls) {
+                tableGlobal.registerClass(cls);
+            }
+        }
+
+        return tableGlobal;
     }
 
 
