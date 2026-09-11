@@ -17,10 +17,12 @@ import java.util.Map;
 public class AssignmentDelegate {
     private final VisitorContext visitor;
     private final ExpressionEval expressionEval;
+    private final PigLatinStructValidator structValidator;
 
     public AssignmentDelegate(VisitorContext visitor, ExpressionEval expressionEval) {
         this.visitor = visitor;
         this.expressionEval = expressionEval;
+        this.structValidator = new PigLatinStructValidator(visitor);
     }
 
     @SuppressWarnings("unchecked")
@@ -43,11 +45,16 @@ public class AssignmentDelegate {
             valueExpr = ctx.expression(1);
         }
 
-        exprType = visitor.visit(valueExpr);
-
-        if (targetType != null && targetType != DataType.ERROR && exprType != DataType.ERROR) {
-            if (!TypeChecker.isAssignable(targetType, exprType)) {
-                visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Asignacion invalida. Esperado: " + targetType + ", obtenido: " + exprType);
+        if (targetType == DataType.STRUCT) {
+            String targetStruct = resolveTargetStructName(ctx);
+            boolean valid = structValidator.validateStructAssignment(targetStruct, valueExpr, line, col);
+            exprType = valid ? DataType.STRUCT : DataType.ERROR;
+        } else {
+            exprType = visitor.visit(valueExpr);
+            if (targetType != null && targetType != DataType.ERROR && exprType != DataType.ERROR) {
+                if (!TypeChecker.isAssignable(targetType, exprType)) {
+                    visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Asignacion invalida. Esperado: " + targetType + ", obtenido: " + exprType);
+                }
             }
         }
 
@@ -55,6 +62,13 @@ public class AssignmentDelegate {
 
         if (ctx.DOT() == null && ctx.LBRACK() == null) {
             String id = ctx.ID(0).getText();
+            Symbol sym = visitor.getSymbolTable().lookup(id);
+            if (sym != null && sym.type == DataType.STRUCT && sym.structTypeName != null && val instanceof Map<?, ?> rawMap) {
+                StructInfo sInfo = visitor.getSymbolTable().lookupStruct(sym.structTypeName);
+                if (sInfo != null) {
+                    val = expressionEval.normalizeStruct(sInfo, rawMap);
+                }
+            }
             visitor.getSymbolTable().updateValue(id, val);
         } else if (ctx.DOT() == null && ctx.LBRACK() != null) {
             String id = ctx.ID(0).getText();
@@ -75,6 +89,17 @@ public class AssignmentDelegate {
             String field = ctx.ID(1).getText();
             Symbol sym = visitor.getSymbolTable().lookup(id);
             if (sym != null && sym.value instanceof Map) {
+                String structName = sym.structTypeName != null ? sym.structTypeName : sym.type.name().toLowerCase();
+                StructInfo info = visitor.getSymbolTable().lookupStruct(structName);
+                if (info != null && val instanceof Map<?, ?> rawMap) {
+                    String fieldStruct = info.getFieldStructType(field);
+                    if (fieldStruct != null) {
+                        StructInfo fieldInfo = visitor.getSymbolTable().lookupStruct(fieldStruct);
+                        if (fieldInfo != null) {
+                            val = expressionEval.normalizeStruct(fieldInfo, rawMap);
+                        }
+                    }
+                }
                 ((Map<String, Object>) sym.value).put(field, val);
             }
         } else if (ctx.DOT() != null && ctx.LBRACK() != null) {
@@ -170,5 +195,21 @@ public class AssignmentDelegate {
             return DataType.ERROR;
         }
         return info.getFieldType(field);
+    }
+
+    private String resolveTargetStructName(PigLatinParser.AssignStmtContext ctx) {
+        String id = ctx.ID(0).getText();
+        Symbol sym = visitor.getSymbolTable().lookup(id);
+        if (sym == null) return null;
+        if (ctx.DOT() == null) {
+            return sym.structTypeName;
+        }
+        String field = ctx.ID(1).getText();
+        String typeName = sym.structTypeName != null ? sym.structTypeName : sym.type.name().toLowerCase();
+        StructInfo info = visitor.getSymbolTable().lookupStruct(typeName);
+        if (info != null) {
+            return info.getFieldStructType(field);
+        }
+        return null;
     }
 }

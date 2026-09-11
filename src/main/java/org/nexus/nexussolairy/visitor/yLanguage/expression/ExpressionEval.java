@@ -96,7 +96,9 @@ public class ExpressionEval {
             Object right = evalMultiplicativeExpression(ctx.multiplicativeExpression(i));
             String op = ctx.getChild(2 * i - 1).getText();
             if ("+".equals(op)) {
-                if (left instanceof String || right instanceof String) {
+                if (left instanceof Map || right instanceof Map) {
+                    left = null;
+                } else if (left instanceof String || right instanceof String) {
                     left = toDisplayString(left) + toDisplayString(right);
                 } else if (left instanceof Number ln && right instanceof Number rn) {
                     if (left instanceof Double || right instanceof Double || left instanceof Float || right instanceof Float) {

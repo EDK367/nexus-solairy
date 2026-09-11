@@ -3,11 +3,13 @@ package org.nexus.nexussolairy.visitor.pigLatin.expression;
 import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -106,6 +108,9 @@ public class ExpressionEval {
 
     private Object applyAdditive(Object left, Object right, String op) {
         if ("+".equals(op)) {
+            if (left instanceof Map || right instanceof Map) {
+                return null;
+            }
             if (left instanceof String || right instanceof String) {
                 return toDisplayString(left) + toDisplayString(right);
             }
@@ -325,6 +330,25 @@ public class ExpressionEval {
             }
         }
         return map;
+    }
+
+    public Object normalizeStruct(StructInfo info, Map<?, ?> rawMap) {
+        if (info == null || rawMap == null) return rawMap;
+        Map<String, Object> structFields = new LinkedHashMap<>();
+        List<String> sFieldNames = new ArrayList<>(info.getFields().keySet());
+        for (int i = 0; i < sFieldNames.size(); i++) {
+            String fName = sFieldNames.get(i);
+            Object fVal = rawMap.containsKey("field_" + i) ? rawMap.get("field_" + i) : rawMap.get(fName);
+            String nestedTypeName = info.getFieldStructType(fName);
+            if (nestedTypeName != null && fVal instanceof Map<?, ?> nestedMap) {
+                StructInfo nestedInfo = visitor.getSymbolTable().lookupStruct(nestedTypeName);
+                if (nestedInfo != null) {
+                    fVal = normalizeStruct(nestedInfo, nestedMap);
+                }
+            }
+            structFields.put(fName, fVal);
+        }
+        return structFields;
     }
 
     public Object evalLiteral(PigLatinParser.LiteralContext ctx) {

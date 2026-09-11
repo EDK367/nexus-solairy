@@ -98,6 +98,11 @@ public class TypeChecker {
 
         switch (op) {
             case "+":
+                if (left == DataType.STRUCT || right == DataType.STRUCT
+                        || left == DataType.CLASS || right == DataType.CLASS
+                        || left == DataType.VOID || right == DataType.VOID) {
+                    return DataType.ERROR;
+                }
                 if (isString(left) || isString(right)) {
                     if (isString(left)) return left;
                     if (isString(right)) return right;
@@ -157,6 +162,11 @@ public class TypeChecker {
 
         switch (op) {
             case "+":
+                if (left.getDataType() == DataType.STRUCT || right.getDataType() == DataType.STRUCT
+                        || left.getDataType() == DataType.CLASS || right.getDataType() == DataType.CLASS
+                        || left.getDataType() == DataType.VOID || right.getDataType() == DataType.VOID) {
+                    return Type.ERROR;
+                }
                 if (isString(left) || isString(right)) return isString(left) ? left : right;
                 if (isNumeric(left) && isNumeric(right)) return getWiderNumeric(left, right);
                 return Type.ERROR;

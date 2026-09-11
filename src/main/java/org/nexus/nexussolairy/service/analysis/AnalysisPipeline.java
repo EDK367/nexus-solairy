@@ -169,6 +169,9 @@ public class AnalysisPipeline {
                     "Verifique que el archivo exista en: " + baseDirectory));
                 continue;
             }
+            if (imported.errors != null && !imported.errors.isEmpty()) {
+                importErrors.addAll(imported.errors);
+            }
             for (Symbol sym : imported.symbols) {
                 globalScope.declare(sym);
             }

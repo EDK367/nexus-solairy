@@ -7,6 +7,7 @@ import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.ClassSymbol;
 import org.nexus.nexussolairy.model.semantic.FunctionSymbol;
+import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.model.semantic.TypeChecker;
@@ -24,11 +25,13 @@ public class VariableSection {
     private final ExpressionSection expressionDelegate;
     private final ExpressionEval expressionEval;
     private final TypeChecker checker = new TypeChecker();
+    private final PigLatinStructValidator structValidator;
 
     public VariableSection(VisitorContext visitor, ExpressionSection expressionDelegate, ExpressionEval expressionEval) {
         this.visitor = visitor;
         this.expressionDelegate = expressionDelegate;
         this.expressionEval = expressionEval;
+        this.structValidator = new PigLatinStructValidator(visitor);
     }
 
     public DataType visitVarSection(PigLatinParser.VarSectionContext ctx) {
@@ -154,15 +157,28 @@ public class VariableSection {
 
             Object value = null;
             if (ctx.expression() != null) {
-                DataType init = visitor.visit(ctx.expression());
-                if (!TypeChecker.isAssignable(t, init)) {
-                    visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Inicializacion invalida para '" + varName + "'. Esperado: " + t + ", obtenido: " + init);
+                DataType init;
+                if (t == DataType.STRUCT) {
+                    String structTypeName = (ctx.type() != null && ctx.type().ID() != null) ? ctx.type().ID().getText() : null;
+                    boolean valid = structValidator.validateStructAssignment(structTypeName, ctx.expression(), line, col);
+                    init = valid ? DataType.STRUCT : DataType.ERROR;
+                } else {
+                    init = visitor.visit(ctx.expression());
+                    if (!TypeChecker.isAssignable(t, init)) {
+                        visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Inicializacion invalida para '" + varName + "'. Esperado: " + t + ", obtenido: " + init);
+                    }
                 }
                 value = expressionEval.evalExpression(ctx.expression());
             }
 
             if (t == DataType.STRUCT) {
                 String structTypeName = (ctx.type() != null && ctx.type().ID() != null) ? ctx.type().ID().getText() : null;
+                if (structTypeName != null && value instanceof Map<?, ?> rawMap) {
+                    StructInfo sInfo = visitor.getSymbolTable().lookupStruct(structTypeName);
+                    if (sInfo != null) {
+                        value = expressionEval.normalizeStruct(sInfo, rawMap);
+                    }
+                }
                 Symbol sym = new Symbol(varName, structTypeName, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.PIG_LATIN, value, line, col);
                 visitor.getSymbolTable().declare(sym);
             } else if (t == DataType.CLASS) {

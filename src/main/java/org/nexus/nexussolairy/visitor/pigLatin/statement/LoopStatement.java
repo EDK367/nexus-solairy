@@ -5,20 +5,26 @@ import org.nexus.nexussolairy.model.enums.DataType;
 import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.model.semantic.TypeChecker;
 import org.nexus.nexussolairy.visitor.pigLatin.expression.ExpressionEval;
+import org.nexus.nexussolairy.visitor.pigLatin.variable.PigLatinStructValidator;
+
+import java.util.Map;
 
 public class LoopStatement {
     private final VisitorContext visitor;
     private final ExpressionEval expressionEval;
+    private final PigLatinStructValidator structValidator;
 
     private static final int MAX_ITERATIONS = 100_000;
 
     public LoopStatement(VisitorContext visitor, ExpressionEval expressionEval) {
         this.visitor = visitor;
         this.expressionEval = expressionEval;
+        this.structValidator = new PigLatinStructValidator(visitor);
     }
 
     public DataType visitWhileStmt(PigLatinParser.WhileStmtContext ctx) {
@@ -211,15 +217,28 @@ public class LoopStatement {
 
             Object val = null;
             if (ctx.expression() != null) {
-                DataType init = visitor.visit(ctx.expression());
-                if (!TypeChecker.isAssignable(type, init)) {
-                    visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Inicializacion invalida en 'per'.");
+                DataType init;
+                if (type == DataType.STRUCT) {
+                    String structTypeName = (ctx.type() != null && ctx.type().ID() != null) ? ctx.type().ID().getText() : null;
+                    boolean valid = structValidator.validateStructAssignment(structTypeName, ctx.expression(), line, col);
+                    init = valid ? DataType.STRUCT : DataType.ERROR;
+                } else {
+                    init = visitor.visit(ctx.expression());
+                    if (!TypeChecker.isAssignable(type, init)) {
+                        visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Inicializacion invalida en 'per'.");
+                    }
                 }
                 val = expressionEval.evalExpression(ctx.expression());
             }
 
             if (type == DataType.STRUCT) {
                 String structTypeName = (ctx.type() != null && ctx.type().ID() != null) ? ctx.type().ID().getText() : null;
+                if (structTypeName != null && val instanceof Map<?, ?> rawMap) {
+                    StructInfo sInfo = visitor.getSymbolTable().lookupStruct(structTypeName);
+                    if (sInfo != null) {
+                        val = expressionEval.normalizeStruct(sInfo, rawMap);
+                    }
+                }
                 Symbol symbol = new Symbol(name, structTypeName, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.PIG_LATIN, val, line, col);
                 visitor.getSymbolTable().declare(symbol);
             } else {
@@ -231,14 +250,26 @@ public class LoopStatement {
             Symbol sym = visitor.getSymbolTable().lookup(id);
             int line = ctx.getStart().getLine();
             int col = ctx.getStart().getCharPositionInLine();
-            DataType exprType = visitor.visit(ctx.expression());
+            DataType exprType;
+            if (sym != null && sym.type == DataType.STRUCT) {
+                boolean valid = structValidator.validateStructAssignment(sym.structTypeName, ctx.expression(), line, col);
+                exprType = valid ? DataType.STRUCT : DataType.ERROR;
+            } else {
+                exprType = visitor.visit(ctx.expression());
+            }
             if (sym == null) {
                 visitor.reportError(line, col, TypeErrorSemantic.UNDECLARED, "Variable '" + id + "' no declarada.");
             } else {
-                if (!TypeChecker.isAssignable(sym.type, exprType)) {
+                if (sym.type != DataType.STRUCT && !TypeChecker.isAssignable(sym.type, exprType)) {
                     visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Asignacion invalida en 'per'.");
                 }
                 Object val = expressionEval.evalExpression(ctx.expression());
+                if (sym.type == DataType.STRUCT && sym.structTypeName != null && val instanceof Map<?, ?> rawMap) {
+                    StructInfo sInfo = visitor.getSymbolTable().lookupStruct(sym.structTypeName);
+                    if (sInfo != null) {
+                        val = expressionEval.normalizeStruct(sInfo, rawMap);
+                    }
+                }
                 visitor.getSymbolTable().updateValue(id, val);
             }
         }

@@ -71,6 +71,10 @@ public class ProgramSection {
         if (ctx.type() != null) {
             DataType t = ((YVisitorImpl) visitor).visitType(ctx.type());
             String fieldName = ctx.ID(0).getText();
+            if (structInfo.hasField(fieldName)) {
+                visitor.reportError(line, col, TypeErrorSemantic.REDECLARACION, "Campo '" + fieldName + "' ya declarado en la estructura '" + structInfo.getName() + "'");
+                return;
+            }
             boolean isArray = ctx.LBRACK() != null;
             if (isArray) {
                 DataType idx = visitor.visit(ctx.expression());
@@ -85,6 +89,10 @@ public class ProgramSection {
         } else {
             String structTypeName = ctx.ID(0).getText();
             String fieldName = ctx.ID(1).getText();
+            if (structInfo.hasField(fieldName)) {
+                visitor.reportError(line, col, TypeErrorSemantic.REDECLARACION, "Campo '" + fieldName + "' ya declarado en la estructura '" + structInfo.getName() + "'");
+                return;
+            }
             if (!visitor.getSymbolTable().structExists(structTypeName)) {
                 visitor.reportError(line, col, TypeErrorSemantic.UNDECLARED, "Tipo no definido: '" + structTypeName + "'");
             }

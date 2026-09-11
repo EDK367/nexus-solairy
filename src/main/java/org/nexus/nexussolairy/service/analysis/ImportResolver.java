@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.nexus.nexussolairy.*;
 import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.semantic.ClassSymbol;
+import org.nexus.nexussolairy.model.semantic.SemanticError;
 import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.service.parser.YIdentationLexer;
@@ -28,15 +29,19 @@ public class ImportResolver {
         public final List<Symbol> symbols;
         public final Map<String, StructInfo> structs;   // de .y
         public final Map<String, ClassSymbol> classes;  // de .z
+        public final List<SemanticError> errors;
 
-        public ImportResult(List<Symbol> symbols, 
-                            Map<String, StructInfo> structs,
-                            Map<String, ClassSymbol> classes) {
+        public ImportResult(List<Symbol> symbols, Map<String, StructInfo> structs, Map<String, ClassSymbol> classes) {
+            this(symbols, structs, classes, List.of());
+        }
+
+        public ImportResult(List<Symbol> symbols, Map<String, StructInfo> structs, Map<String, ClassSymbol> classes, List<SemanticError> errors) {
             this.symbols = symbols;
             this.structs = structs;
             this.classes = classes;
+            this.errors = errors != null ? errors : List.of();
         }
-        
+
         public boolean isEmpty() {
             return symbols.isEmpty() && structs.isEmpty() && classes.isEmpty();
         }
@@ -46,15 +51,18 @@ public class ImportResolver {
         String filePath = resolveFilePath(importPath, baseDirectory);
         if (filePath == null) return new ImportResult(List.of(), Map.of(), Map.of());
         String source;
-        try { source = Files.readString(Path.of(filePath)); }
-        catch (IOException ex) { return new ImportResult(List.of(), Map.of(), Map.of()); }
+        try {
+            source = Files.readString(Path.of(filePath));
+        } catch (IOException ex) {
+            return new ImportResult(List.of(), Map.of(), Map.of());
+        }
         LanguageType language = LanguageType.fromFileName(filePath);
         if (language == LanguageType.UNKNOWN) return new ImportResult(List.of(), Map.of(), Map.of());
         return switch (language) {
             case PIG_LATIN -> importFromPig(source);
             case ZETARIANO -> importFromZetariano(source, filePath);
-            case Y_LANG    -> importFromY(source);
-            default        -> new ImportResult(List.of(), Map.of(), Map.of());
+            case Y_LANG -> importFromY(source);
+            default -> new ImportResult(List.of(), Map.of(), Map.of());
         };
     }
 
@@ -68,8 +76,8 @@ public class ImportResolver {
             visitor.visit(parser.program());
             List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
             Map<String, StructInfo> structs = new HashMap<>(visitor.getSymbolTable().getStructRegistry());
-            
-            return new ImportResult(symbols, structs, Map.of());
+
+            return new ImportResult(symbols, structs, Map.of(), visitor.getErrors());
         } catch (Exception e) {
             return new ImportResult(List.of(), Map.of(), Map.of());
         }
@@ -86,8 +94,8 @@ public class ImportResolver {
             visitor.visit(parser.program());
             List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
             Map<String, ClassSymbol> classes = new HashMap<>(visitor.getSymbolTable().getClassRegistry());
-            
-            return new ImportResult(symbols, Map.of(), classes);
+
+            return new ImportResult(symbols, Map.of(), classes, visitor.getErrors());
         } catch (Exception e) {
             return new ImportResult(List.of(), Map.of(), Map.of());
         }
@@ -102,7 +110,7 @@ public class ImportResolver {
             PigLatinVisitorImpl visitor = new PigLatinVisitorImpl();
             visitor.visit(parser.program());
             List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
-            return new ImportResult(symbols, Map.of(), Map.of());
+            return new ImportResult(symbols, Map.of(), Map.of(), visitor.getErrors());
         } catch (Exception e) {
             return new ImportResult(List.of(), Map.of(), Map.of());
         }

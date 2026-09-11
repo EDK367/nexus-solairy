@@ -178,6 +178,9 @@ public class ExpressionEval {
 
     public Object applyBinaryOp(Object left, String op, Object right) {
         if ("+".equals(op)) {
+            if (left instanceof Map || right instanceof Map) {
+                return null;
+            }
             if (left instanceof String || right instanceof String) {
                 return toDisplayString(left) + toDisplayString(right);
             }

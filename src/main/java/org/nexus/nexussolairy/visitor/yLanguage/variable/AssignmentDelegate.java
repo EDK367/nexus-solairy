@@ -16,10 +16,12 @@ import java.util.Map;
 public class AssignmentDelegate {
     private final VisitorContext visitor;
     private final ExpressionEval expressionEval;
+    private final YStructValidator structValidator;
 
     public AssignmentDelegate(VisitorContext visitor, ExpressionEval expressionEval) {
         this.visitor = visitor;
         this.expressionEval = expressionEval;
+        this.structValidator = new YStructValidator(visitor);
     }
 
     @SuppressWarnings("unchecked")
@@ -51,9 +53,16 @@ public class AssignmentDelegate {
             return DataType.VOID;
         }
 
-        DataType exprType = visitor.visit(ctx.expression());
-        if (!TypeChecker.isAssignable(targetType, exprType)) {
-            visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Asignacion invalida. Esperado: " + targetType + ", obtenido: " + exprType);
+        DataType exprType;
+        if (targetType == DataType.STRUCT) {
+            String targetStruct = resolveTargetStructName(ctx.target());
+            boolean valid = structValidator.validateStructAssignment(targetStruct, ctx.expression(), line, col);
+            exprType = valid ? DataType.STRUCT : DataType.ERROR;
+        } else {
+            exprType = visitor.visit(ctx.expression());
+            if (!TypeChecker.isAssignable(targetType, exprType)) {
+                visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Asignacion invalida. Esperado: " + targetType + ", obtenido: " + exprType);
+            }
         }
 
         Object val = expressionEval.evalExpression(ctx.expression());
@@ -154,5 +163,26 @@ public class AssignmentDelegate {
         }
 
         return DataType.ERROR;
+    }
+
+    private String resolveTargetStructName(YParser.TargetContext ctx) {
+        if (ctx == null || ctx.ID().isEmpty()) return null;
+        String id = ctx.ID(0).getText();
+        Symbol sym = visitor.getSymbolTable().lookup(id);
+        if (sym == null) return null;
+        if (ctx.DOT().isEmpty()) {
+            return sym.structTypeName;
+        }
+        String currentStruct = sym.structTypeName;
+        for (int i = 1; i < ctx.ID().size(); i++) {
+            String field = ctx.ID(i).getText();
+            StructInfo structInfo = visitor.getSymbolTable().lookupStruct(currentStruct);
+            if (structInfo == null) return null;
+            if (i == ctx.ID().size() - 1) {
+                return structInfo.getFieldStructType(field);
+            }
+            currentStruct = structInfo.getFieldStructType(field);
+        }
+        return null;
     }
 }

@@ -5,6 +5,7 @@ import org.nexus.nexussolairy.model.enums.DataType;
 import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.model.semantic.TypeChecker;
 import org.nexus.nexussolairy.visitor.VisitorContext;
@@ -19,11 +20,13 @@ public class VariableSection {
     private final VisitorContext visitor;
     private final ExpressionSection expressionDelegate;
     private final ExpressionEval expressionEval;
+    private final YStructValidator structValidator;
 
     public VariableSection(VisitorContext visitor, ExpressionSection expressionDelegate, ExpressionEval expressionEval) {
         this.visitor = visitor;
         this.expressionDelegate = expressionDelegate;
         this.expressionEval = expressionEval;
+        this.structValidator = new YStructValidator(visitor);
     }
 
     public DataType getType(YParser.TypeContext ctx) {
@@ -135,7 +138,10 @@ public class VariableSection {
             }
 
             if (ctx.structLiteral() != null) {
-                visitor.visit(ctx.structLiteral());
+                StructInfo info = visitor.getSymbolTable().lookupStruct(structType);
+                if (info != null) {
+                    structValidator.validateStructLiteral(info, ctx.structLiteral());
+                }
             }
 
             Symbol sym = new Symbol(name, structType, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.Y_LANG, new HashMap<String, Object>(), line, col);
