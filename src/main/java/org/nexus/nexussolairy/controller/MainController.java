@@ -30,7 +30,7 @@ import org.nexus.nexussolairy.model.file.Project;
 import org.nexus.nexussolairy.model.lexical.LexerError;
 import org.nexus.nexussolairy.model.lexical.TokenInfo;
 import org.nexus.nexussolairy.model.semantic.SemanticError;
-import org.nexus.nexussolairy.model.semantic.view.SymbolViewModel;
+import org.nexus.nexussolairy.model.view.SymbolViewModel;
 import org.nexus.nexussolairy.model.syntactic.SyntaxError;
 import org.nexus.nexussolairy.model.view.*;
 import org.nexus.nexussolairy.patron.LexerFactory;
@@ -106,7 +106,7 @@ public class MainController implements Initializable {
     @FXML
     private TableView<SymbolViewModel> symbolsTable;
     @FXML
-    private TableColumn<SymbolViewModel, String> colSymName, colSymType, colSymKind, colSymScope, colSymValue;
+    private TableColumn<SymbolViewModel, String> colSymName, colSymType, colSymKind, colSymScope, colSymLanguage, colSymValue;
     @FXML
     private TableColumn<SymbolViewModel, Number> colSymLine, colSymCol;
 
@@ -416,6 +416,7 @@ public class MainController implements Initializable {
         colSymType.setCellValueFactory(c -> c.getValue().dataTypeProperty());
         colSymKind.setCellValueFactory(c -> c.getValue().symbolKindProperty());
         colSymScope.setCellValueFactory(c -> c.getValue().scopeKindProperty());
+        colSymLanguage.setCellValueFactory(c -> c.getValue().languageTypeProperty());
         colSymValue.setCellValueFactory(c -> c.getValue().valueProperty());
         colSymLine.setCellValueFactory(c -> c.getValue().lineProperty());
         colSymCol.setCellValueFactory(c -> c.getValue().columnProperty());
@@ -1148,6 +1149,7 @@ public class MainController implements Initializable {
                     sym.getType() != null ? sym.getType().name() : "",
                     sym.getKind() != null ? sym.getKind().name() : "",
                     sym.getScope() != null ? sym.getScope().name() : "",
+                    sym.getLanguage() != null ? sym.getLanguage().name() : "",
                     sym.getValue() != null ? sym.getValue().toString() : "null",
                     sym.getLine(),
                     sym.getColumn()

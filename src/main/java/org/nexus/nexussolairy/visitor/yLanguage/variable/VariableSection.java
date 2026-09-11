@@ -2,6 +2,7 @@ package org.nexus.nexussolairy.visitor.yLanguage.variable;
 
 import org.nexus.nexussolairy.YParser;
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.Symbol;
@@ -72,10 +73,10 @@ public class VariableSection {
 
             if (t == DataType.STRUCT) {
                 String structTypeName = (ctx.type().ID() != null) ? ctx.type().ID().getText() : null;
-                Symbol sym = new Symbol(name, structTypeName, visitor.getSymbolTable().getCurrentScopeKind(), value, line, col);
+                Symbol sym = new Symbol(name, structTypeName, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.Y_LANG,value, line, col);
                 visitor.getSymbolTable().declare(sym);
             } else {
-                Symbol sym = new Symbol(name, t, SymbolKind.VARIABLE, visitor.getSymbolTable().getCurrentScopeKind(), value, line, col);
+                Symbol sym = new Symbol(name, t, SymbolKind.VARIABLE, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.Y_LANG, value, line, col);
                 visitor.getSymbolTable().declare(sym);
             }
             return DataType.VOID;
@@ -115,7 +116,7 @@ public class VariableSection {
                 }
             }
 
-            Symbol sym = new Symbol(name, t, visitor.getSymbolTable().getCurrentScopeKind(), values, line, col, size);
+            Symbol sym = new Symbol(name, t, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.Y_LANG, values, line, col, size);
             visitor.getSymbolTable().declare(sym);
             return DataType.VOID;
         }
@@ -137,7 +138,7 @@ public class VariableSection {
                 visitor.visit(ctx.structLiteral());
             }
 
-            Symbol sym = new Symbol(name, structType, visitor.getSymbolTable().getCurrentScopeKind(), new HashMap<String, Object>(), line, col);
+            Symbol sym = new Symbol(name, structType, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.Y_LANG, new HashMap<String, Object>(), line, col);
             visitor.getSymbolTable().declare(sym);
             return DataType.VOID;
         }

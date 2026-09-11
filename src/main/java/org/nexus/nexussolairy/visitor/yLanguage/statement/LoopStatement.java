@@ -1,10 +1,7 @@
 package org.nexus.nexussolairy.visitor.yLanguage.statement;
 
 import org.nexus.nexussolairy.YParser;
-import org.nexus.nexussolairy.model.enums.DataType;
-import org.nexus.nexussolairy.model.enums.ScopeKind;
-import org.nexus.nexussolairy.model.enums.SymbolKind;
-import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.enums.*;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.model.semantic.TypeChecker;
 import org.nexus.nexussolairy.visitor.VisitorContext;
@@ -66,7 +63,7 @@ public class LoopStatement {
             if (visitor.getSymbolTable().lookupLocal(name) != null) {
                 visitor.reportError(line, col, TypeErrorSemantic.REDECLARACION, "Variable '" + name + "' ya declarada");
             } else {
-                visitor.getSymbolTable().declare(new Symbol(name, t, SymbolKind.VARIABLE, ScopeKind.LOCAL, null, line, col));
+                visitor.getSymbolTable().declare(new Symbol(name, t, SymbolKind.VARIABLE, ScopeKind.LOCAL, LanguageType.Y_LANG, null, line, col));
             }
 
             DataType init = visitor.visit(ctx.expression());

@@ -2,6 +2,7 @@ package org.nexus.nexussolairy.visitor.pigLatin.statement;
 
 import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.Symbol;
@@ -204,26 +205,26 @@ public class LoopStatement {
 
         if (ctx.ESTO() != null) {
             String name = ctx.ID().getText();
-            DataType t = getTypeFromContext(ctx.type());
+            DataType type = getTypeFromContext(ctx.type());
             int line = ctx.getStart().getLine();
             int col = ctx.getStart().getCharPositionInLine();
 
             Object val = null;
             if (ctx.expression() != null) {
                 DataType init = visitor.visit(ctx.expression());
-                if (!TypeChecker.isAssignable(t, init)) {
+                if (!TypeChecker.isAssignable(type, init)) {
                     visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Inicializacion invalida en 'per'.");
                 }
                 val = expressionEval.evalExpression(ctx.expression());
             }
 
-            if (t == DataType.STRUCT) {
+            if (type == DataType.STRUCT) {
                 String structTypeName = (ctx.type() != null && ctx.type().ID() != null) ? ctx.type().ID().getText() : null;
-                Symbol s = new Symbol(name, structTypeName, visitor.getSymbolTable().getCurrentScopeKind(), val, line, col);
-                visitor.getSymbolTable().declare(s);
+                Symbol symbol = new Symbol(name, structTypeName, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.PIG_LATIN, val, line, col);
+                visitor.getSymbolTable().declare(symbol);
             } else {
-                Symbol s = new Symbol(name, t, SymbolKind.VARIABLE, visitor.getSymbolTable().getCurrentScopeKind(), val, line, col);
-                visitor.getSymbolTable().declare(s);
+                Symbol symbol = new Symbol(name, type, SymbolKind.VARIABLE, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.PIG_LATIN, val, line, col);
+                visitor.getSymbolTable().declare(symbol);
             }
         } else if (ctx.ID() != null && ctx.expression() != null) {
             String id = ctx.ID().getText();

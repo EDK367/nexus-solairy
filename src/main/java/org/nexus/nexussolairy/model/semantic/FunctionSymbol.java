@@ -1,6 +1,7 @@
 package org.nexus.nexussolairy.model.semantic;
 
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.ScopeKind;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 
@@ -13,12 +14,12 @@ public class FunctionSymbol extends Symbol {
     private final List<VariableSymbol> params = new ArrayList<>();
     private Type returnSemanticType;
 
-    public FunctionSymbol(String name, Type returnType) {
-        this(name, returnType, 0, 0);
+    public FunctionSymbol(String name, Type returnType, LanguageType language) {
+        this(name, returnType, language, 0, 0);
     }
 
-    public FunctionSymbol(String name, Type returnType, int line, int column) {
-        super(name, returnType != null ? returnType.getDataType() : DataType.VOID, SymbolKind.FUNCTION, ScopeKind.GLOBAL, null, line, column, new ArrayList<>(), returnType != null ? returnType.getDataType() : DataType.VOID, null, null, null);
+    public FunctionSymbol(String name, Type returnType, LanguageType language, int line, int column) {
+        super(name, returnType != null ? returnType.getDataType() : DataType.VOID, SymbolKind.FUNCTION, ScopeKind.GLOBAL, language, null, line, column, new ArrayList<>(), returnType != null ? returnType.getDataType() : DataType.VOID, null, null, null);
         this.returnSemanticType = returnType;
     }
 

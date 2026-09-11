@@ -1,6 +1,7 @@
 package org.nexus.nexussolairy.model.semantic;
 
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.ScopeKind;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 
@@ -12,6 +13,7 @@ public class Symbol {
     public final DataType type;
     public final SymbolKind kind;
     public final ScopeKind scope;
+    public final LanguageType language;
     public Object value; // valor mutable
     public final int line;
     public final int column;
@@ -28,29 +30,30 @@ public class Symbol {
     public final String structTypeName;
 
     // constuctor para variables simples o parametros
-    public Symbol(String name, DataType type, SymbolKind kind, ScopeKind scope, Object value, int line, int column) {
-        this(name, type, kind, scope, value, line, column, null, null, null, null, null);
+    public Symbol(String name, DataType type, SymbolKind kind, ScopeKind scope, LanguageType language, Object value, int line, int column) {
+        this(name, type, kind, scope, language, value, line, column, null, null, null, null, null);
     }
 
     // constructor para funciones
-    public Symbol(String name, DataType returnType, ScopeKind scope, Object value, int line, int column, List<DataType> paramTypes) {
-        this(name, returnType, SymbolKind.FUNCTION, scope, value, line, column, paramTypes, returnType, null, null, null);
+    public Symbol(String name, DataType returnType, ScopeKind scope, LanguageType language, Object value, int line, int column, List<DataType> paramTypes) {
+        this(name, returnType, SymbolKind.FUNCTION, scope, language, value, line, column, paramTypes, returnType, null, null, null);
     }
 
     // constructor para arrays
-    public Symbol(String name, DataType elementType, ScopeKind scope, Object value, int line, int column, Integer arraySize) {
-        this(name, elementType, SymbolKind.ARRAY, scope, value, line, column, null, null, elementType, arraySize, null);
+    public Symbol(String name, DataType elementType, ScopeKind scope, LanguageType language, Object value, int line, int column, Integer arraySize) {
+        this(name, elementType, SymbolKind.ARRAY, scope, language, value, line, column, null, null, elementType, arraySize, null);
     }
 
-    public Symbol(String name, String structTypeName, ScopeKind scope, Object value, int line, int column) {
-        this(name, DataType.STRUCT, SymbolKind.VARIABLE, scope, value, line, column, null, null, null, null, structTypeName);
+    public Symbol(String name, String structTypeName, ScopeKind scope, LanguageType language, Object value, int line, int column) {
+        this(name, DataType.STRUCT, SymbolKind.VARIABLE, scope, language, value, line, column, null, null, null, null, structTypeName);
     }
 
-    public Symbol(String name, DataType type, SymbolKind kind, ScopeKind scope, Object value, int line, int column, List<DataType> paramTypes, DataType returnType, DataType elementType, Integer arraySize, String structTypeName) {
+    public Symbol(String name, DataType type, SymbolKind kind, ScopeKind scope, LanguageType language, Object value, int line, int column, List<DataType> paramTypes, DataType returnType, DataType elementType, Integer arraySize, String structTypeName) {
         this.name = name;
         this.type = type;
         this.kind = kind;
         this.scope = scope;
+        this.language = language;
         this.value = value;
         this.line = line;
         this.column = column;
@@ -80,6 +83,10 @@ public class Symbol {
 
     public ScopeKind getScope() {
         return scope;
+    }
+
+    public LanguageType getLanguage() {
+        return language;
     }
 
     public Object getValue() {
@@ -120,5 +127,17 @@ public class Symbol {
             return new Type(type);
         }
         return Type.ERROR;
+    }
+
+    // scoped label para saber de que lenguaje pertenece el simbolo 
+    public String getScopedLabel() {
+        String langSuffix = switch (language) {
+            case PIG_LATIN -> "PIG";
+            case Y_LANG -> "Y";
+            case ZETARIANO -> "Z";
+            default -> "";
+        };
+
+        return scope.name() + (langSuffix.isEmpty() ? "" : "_" + langSuffix);
     }
 }

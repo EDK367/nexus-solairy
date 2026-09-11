@@ -1,6 +1,7 @@
 package org.nexus.nexussolairy.model.semantic;
 
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.ScopeKind;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 
@@ -18,7 +19,7 @@ public class VariableSymbol extends Symbol {
     }
 
     public VariableSymbol(String name, Type type, Object value, int line, int column) {
-        super(name, type != null ? type.getDataType() : DataType.ERROR, SymbolKind.VARIABLE, ScopeKind.LOCAL, value, line, column, null, null, null, null, (type != null && type.getDataType() == DataType.STRUCT) ? type.getName() : null);
+        super(name, type != null ? type.getDataType() : DataType.ERROR, SymbolKind.VARIABLE, ScopeKind.LOCAL, LanguageType.ZETARIANO, value, line, column, null, null, null, null, (type != null && type.getDataType() == DataType.STRUCT) ? type.getName() : null);
         this.semanticType = type;
         this.value = value;
     }
@@ -28,7 +29,7 @@ public class VariableSymbol extends Symbol {
     }
 
     public VariableSymbol(String name, Type type, SymbolKind kind, ScopeKind scope, Object value, int line, int column) {
-        super(name, type != null ? type.getDataType() : DataType.ERROR, kind, scope, value, line, column, null, null, null, null, (type != null && type.getDataType() == DataType.STRUCT) ? type.getName() : null);
+        super(name, type != null ? type.getDataType() : DataType.ERROR, kind, scope, LanguageType.ZETARIANO, value, line, column, null, null, null, null, (type != null && type.getDataType() == DataType.STRUCT) ? type.getName() : null);
         this.semanticType = type;
         this.value = value;
     }

@@ -4,6 +4,7 @@ public enum LanguageType {
     PIG_LATIN("Pig Latin", ".pig", "#00D9FF"),
     Y_LANG("Y?", ".y", "#8B5CF6"),
     ZETARIANO("Zetariano", ".z", "#38BDF8"),
+    GLOBAL("Global", ".global", "#00D9FF"),
     C_LANG("C", ".c", "#22C55E"),
     UNKNOWN("Plain Text", ".txt", "#8B98A7");
 

@@ -1,6 +1,7 @@
 package org.nexus.nexussolairy.model.semantic;
 
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.ScopeKind;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 
@@ -19,7 +20,7 @@ public class ClassSymbol extends Symbol {
     }
 
     public ClassSymbol(String name, Scope enclosing, int line, int column) {
-        super(name, DataType.CLASS, SymbolKind.CLASS, ScopeKind.GLOBAL, null, line, column, null, null, null, null, name);
+        super(name, DataType.CLASS, SymbolKind.CLASS, ScopeKind.GLOBAL, LanguageType.ZETARIANO, null, line, column, null, null, null, null, name);
         this.enclosingScope = enclosing;
     }
 

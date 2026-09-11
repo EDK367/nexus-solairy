@@ -2,6 +2,7 @@ package org.nexus.nexussolairy.visitor.pigLatin.variable;
 
 import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.Symbol;
@@ -78,7 +79,7 @@ public class VariableSection {
                 visitor.visit(ctx.argumentList());
             }
 
-            Symbol sym = new Symbol(varName, typeName, visitor.getSymbolTable().getCurrentScopeKind(), new HashMap<String, Object>(), line, col);
+            Symbol sym = new Symbol(varName, typeName, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.PIG_LATIN, new HashMap<String, Object>(), line, col);
             visitor.getSymbolTable().declare(sym);
             return DataType.VOID;
         }
@@ -103,10 +104,10 @@ public class VariableSection {
 
             if (t == DataType.STRUCT) {
                 String structTypeName = (ctx.type() != null && ctx.type().ID() != null) ? ctx.type().ID().getText() : null;
-                Symbol sym = new Symbol(varName, structTypeName, visitor.getSymbolTable().getCurrentScopeKind(), value, line, col);
+                Symbol sym = new Symbol(varName, structTypeName, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.PIG_LATIN, value, line, col);
                 visitor.getSymbolTable().declare(sym);
             } else {
-                Symbol sym = new Symbol(varName, t, SymbolKind.VARIABLE, visitor.getSymbolTable().getCurrentScopeKind(), value, line, col);
+                Symbol sym = new Symbol(varName, t, SymbolKind.VARIABLE, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.PIG_LATIN, value, line, col);
                 visitor.getSymbolTable().declare(sym);
             }
             return DataType.VOID;
@@ -156,7 +157,8 @@ public class VariableSection {
                 }
             }
 
-            Symbol sym = new Symbol(varName, elementType, visitor.getSymbolTable().getCurrentScopeKind(), values, line, col, size);
+
+            Symbol sym = new Symbol(varName, elementType, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.PIG_LATIN, values, line, col, size);
             visitor.getSymbolTable().declare(sym);
             return DataType.VOID;
         }

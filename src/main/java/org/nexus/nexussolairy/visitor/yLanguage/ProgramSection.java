@@ -1,10 +1,7 @@
 package org.nexus.nexussolairy.visitor.yLanguage;
 
 import org.nexus.nexussolairy.YParser;
-import org.nexus.nexussolairy.model.enums.DataType;
-import org.nexus.nexussolairy.model.enums.ScopeKind;
-import org.nexus.nexussolairy.model.enums.SymbolKind;
-import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.enums.*;
 import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.model.semantic.TypeChecker;
@@ -56,7 +53,7 @@ public class ProgramSection {
             visitStructFieldWithInfo(f, ss);
         }
 
-        Symbol structSym = new Symbol(name, DataType.STRUCT, SymbolKind.STRUCT, ScopeKind.GLOBAL, null, line, col, null, null, null, null, name);
+        Symbol structSym = new Symbol(name, DataType.STRUCT, SymbolKind.STRUCT, ScopeKind.GLOBAL, LanguageType.Y_LANG, null, line, col, null, null, null, null, name);
         visitor.getSymbolTable().declare(structSym);
 
         return DataType.VOID;
@@ -132,7 +129,7 @@ public class ProgramSection {
             }
         }
 
-        Symbol fs = new Symbol(name, retType, ScopeKind.GLOBAL, null, line, col, paramTypes);
+        Symbol fs = new Symbol(name, retType, ScopeKind.GLOBAL, LanguageType.Y_LANG, null, line, col, paramTypes);
         visitor.getSymbolTable().declare(fs);
 
         YVisitorImpl yVisitor = (YVisitorImpl) visitor;
@@ -185,13 +182,13 @@ public class ProgramSection {
             DataType t = ((YVisitorImpl) visitor).visitType(p.type());
             String name = p.ID(0).getText();
             String structTypeName = (t == DataType.STRUCT && p.type().ID() != null) ? p.type().ID().getText() : null;
-            return new Symbol(name, t, SymbolKind.PARAMETER, ScopeKind.LOCAL, null, line, col, null, null, null, null, structTypeName);
+            return new Symbol(name, t, SymbolKind.PARAMETER, ScopeKind.LOCAL, LanguageType.Y_LANG, null, line, col, null, null, null, null, structTypeName);
         }
 
         if (p.LBRACK() != null && p.type() != null) {
             DataType t = ((YVisitorImpl) visitor).visitType(p.type());
             String name = p.ID(0).getText();
-            return new Symbol(name, t, ScopeKind.LOCAL, null, line, col, (Integer) null);
+            return new Symbol(name, t, ScopeKind.LOCAL, LanguageType.Y_LANG,  null, line, col, (Integer) null);
         }
 
         if (p.LBRACE() != null && p.ID().size() >= 2) {
@@ -200,9 +197,9 @@ public class ProgramSection {
             if (!visitor.getSymbolTable().structExists(structType)) {
                 visitor.reportError(line, col, TypeErrorSemantic.UNDECLARED, "Tipo no definido: '" + structType + "'");
             }
-            return new Symbol(name, structType, ScopeKind.LOCAL, null, line, col);
+            return new Symbol(name, structType, ScopeKind.LOCAL, LanguageType.Y_LANG, null, line, col);
         }
 
-        return new Symbol("err", DataType.ERROR, SymbolKind.PARAMETER, ScopeKind.LOCAL, null, line, col);
+        return new Symbol("err", DataType.ERROR, SymbolKind.PARAMETER, ScopeKind.LOCAL, LanguageType.Y_LANG, null, line, col);
     }
 }

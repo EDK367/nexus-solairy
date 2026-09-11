@@ -2,6 +2,7 @@ package org.nexus.nexussolairy.visitor.zetariano;
 
 import org.nexus.nexussolairy.ZetarianoParser;
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.*;
 
@@ -92,7 +93,7 @@ public class ProgramSection {
             visitor.reportError(ctx, TypeErrorSemantic.DECLARATION_ERROR, "El constructor '" + ctorName + "' debe tener el mismo nombre que la clase '" + cls.getName() + "'");
             return;
         }
-        FunctionSymbol fs = new FunctionSymbol(cls.getName(), new Type(cls.getName()), ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+        FunctionSymbol fs = new FunctionSymbol(cls.getName(), new Type(cls.getName()), LanguageType.ZETARIANO, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
         if (ctx.paramList() != null) {
             for (ZetarianoParser.ParamContext p : ctx.paramList().param()) {
                 fs.addParam(visitor.getVariableDelegate().processParam(p));
@@ -104,7 +105,7 @@ public class ProgramSection {
     private void registerMethod(ClassSymbol cls, ZetarianoParser.MethodDeclContext ctx) {
         Type ret = (ctx.VOID() != null) ? Type.VOID : visitor.getVariableDelegate().getType(ctx.type());
         String name = ctx.ID().getText();
-        FunctionSymbol fs = new FunctionSymbol(name, ret, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+        FunctionSymbol fs = new FunctionSymbol(name, ret, LanguageType.ZETARIANO, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
         if (ctx.paramList() != null) {
             for (ZetarianoParser.ParamContext p : ctx.paramList().param()) {
                 fs.addParam(visitor.getVariableDelegate().processParam(p));

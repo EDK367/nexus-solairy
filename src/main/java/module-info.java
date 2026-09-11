@@ -28,8 +28,6 @@ module org.nexus.nexussolairy {
     opens org.nexus.nexussolairy.model.lexical to javafx.base;
     exports org.nexus.nexussolairy.model.semantic;
     opens org.nexus.nexussolairy.model.semantic to javafx.base;
-    exports org.nexus.nexussolairy.model.semantic.view;
-    opens org.nexus.nexussolairy.model.semantic.view to javafx.base;
     exports org.nexus.nexussolairy.model.file;
     opens org.nexus.nexussolairy.model.file to javafx.base;
     exports org.nexus.nexussolairy.model.view;

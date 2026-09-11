@@ -212,6 +212,7 @@
                                                     <TableColumn fx:id="colSymType" text="Data Type" prefWidth="120"/>
                                                     <TableColumn fx:id="colSymKind" text="Symbol Kind" prefWidth="130"/>
                                                     <TableColumn fx:id="colSymScope" text="Scope" prefWidth="100"/>
+                                                    <TableColumn fx:id="colSymLanguage" text="Language" prefWidth="130"/>
                                                     <TableColumn fx:id="colSymValue" text="Value" prefWidth="130"/>
                                                     <TableColumn fx:id="colSymLine" text="Line" prefWidth="65"/>
                                                     <TableColumn fx:id="colSymCol" text="Column" prefWidth="65"/>
