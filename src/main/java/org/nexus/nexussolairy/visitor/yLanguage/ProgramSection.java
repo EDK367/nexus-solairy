@@ -102,18 +102,18 @@ public class ProgramSection {
 
     public DataType visitVoidFunction(YParser.VoidFunctionContext ctx) {
         if (ctx == null) return DataType.VOID;
-        defineFunction(ctx.ID().getText(), DataType.VOID, ctx.parameterList(), ctx.block(), ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+        defineFunction(ctx.ID().getText(), DataType.VOID, ctx.parameterList(), ctx.block(), ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), ctx);
         return DataType.VOID;
     }
 
     public DataType visitReturnFunction(YParser.ReturnFunctionContext ctx) {
         if (ctx == null) return DataType.VOID;
         DataType retType = ((YVisitorImpl) visitor).visitType(ctx.type());
-        defineFunction(ctx.ID().getText(), retType, ctx.parameterList(), ctx.block(), ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+        defineFunction(ctx.ID().getText(), retType, ctx.parameterList(), ctx.block(), ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), ctx);
         return DataType.VOID;
     }
 
-    private void defineFunction(String name, DataType retType, YParser.ParameterListContext pl, YParser.BlockContext blk, int line, int col) {
+    private void defineFunction(String name, DataType retType, YParser.ParameterListContext pl, YParser.BlockContext blk, int line, int col, Object astCtx) {
         if (visitor.getSymbolTable().getGlobalScope().lookupLocal(name) != null) {
             visitor.reportError(line, col, TypeErrorSemantic.REDECLARACION, "Funcion '" + name + "' ya definida");
         }
@@ -130,6 +130,7 @@ public class ProgramSection {
         }
 
         Symbol fs = new Symbol(name, retType, ScopeKind.GLOBAL, LanguageType.Y_LANG, null, line, col, paramTypes);
+        fs.setAstContext(astCtx);
         visitor.getSymbolTable().declare(fs);
 
         YVisitorImpl yVisitor = (YVisitorImpl) visitor;

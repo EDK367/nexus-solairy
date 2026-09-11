@@ -144,4 +144,14 @@ public class Symbol {
 
         return scope.name() + (langSuffix.isEmpty() ? "" : "_" + langSuffix);
     }
+
+    private Object astContext;
+
+    public Object getAstContext() {
+        return astContext;
+    }
+
+    public void setAstContext(Object astContext) {
+        this.astContext = astContext;
+    }
 }

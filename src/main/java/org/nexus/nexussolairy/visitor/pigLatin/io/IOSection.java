@@ -35,12 +35,16 @@ public class IOSection {
         for (PigLatinParser.ExpressionContext expr : ctx.expression()) {
             visitor.visit(expr);
             Object val = expressionEval.evalExpression(expr);
-            sb.append(expressionEval.toDisplayString(val));
+            if (val != null) {
+                sb.append(expressionEval.toDisplayString(val));
+            }
         }
         String output = sb.toString();
-        printOutput.add(output);
-        if (livePrinter != null) {
-            livePrinter.accept(output);
+        if (!output.isEmpty()) {
+            printOutput.add(output);
+            if (livePrinter != null) {
+                livePrinter.accept(output);
+            }
         }
         return DataType.VOID;
     }

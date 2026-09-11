@@ -99,6 +99,7 @@ public class ProgramSection {
                 fs.addParam(visitor.getVariableDelegate().processParam(p));
             }
         }
+        fs.setAstContext(ctx);
         cls.addConstructor(fs);
     }
 
@@ -111,6 +112,7 @@ public class ProgramSection {
                 fs.addParam(visitor.getVariableDelegate().processParam(p));
             }
         }
+        fs.setAstContext(ctx);
         cls.define(fs);
     }
 

@@ -2,6 +2,7 @@ package org.nexus.nexussolairy.visitor.zetariano.expression;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.nexus.nexussolairy.ZetarianoParser;
+import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.ClassSymbol;
 import org.nexus.nexussolairy.model.semantic.FunctionSymbol;
@@ -219,6 +220,18 @@ public class ExpressionSection {
                     }
                 }
                 return f.getSemanticType();
+            } else if (s != null && s.kind == SymbolKind.FUNCTION) {
+                int argCount = (ctx.argList() != null && ctx.argList().expression() != null) ? ctx.argList().expression().size() : 0;
+                int expected = s.paramTypes != null ? s.paramTypes.size() : 0;
+                if (expected != argCount) {
+                    visitor.reportError(ctx, TypeErrorSemantic.ARGUMENT_COUNT_MISMATCH, "Args incorrectos para '" + id + "'");
+                }
+                if (ctx.argList() != null && ctx.argList().expression() != null) {
+                    for (var e : ctx.argList().expression()) {
+                        visitExpression(e);
+                    }
+                }
+                return new Type(s.returnType != null ? s.returnType.name().toLowerCase() : (s.type != null ? s.type.name().toLowerCase() : "void"));
             }
             visitor.reportError(ctx, TypeErrorSemantic.FUNCTION_NOT_FOUND, "Metodo o funcion '" + id + "' no declarado");
             return Type.ERROR;

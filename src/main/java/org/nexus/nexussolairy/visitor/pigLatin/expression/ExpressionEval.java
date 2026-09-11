@@ -250,9 +250,20 @@ public class ExpressionEval {
             return null;
         }
         if (ctx.LPAREN() != null && !ctx.ID().isEmpty()) {
+            if (ctx.ID().size() == 2) {
+                String varName = ctx.ID(0).getText();
+                String methodName = ctx.ID(1).getText();
+                List<Object> args = new ArrayList<>();
+                if (ctx.argumentList() != null && ctx.argumentList().expression() != null) {
+                    for (PigLatinParser.ExpressionContext expr : ctx.argumentList().expression()) {
+                        args.add(evalExpression(expr));
+                    }
+                }
+                return visitor.executeMethodCall(varName, methodName, args);
+            }
             String name = ctx.ID(0).getText();
             List<Object> args = new ArrayList<>();
-            if (ctx.argumentList() != null) {
+            if (ctx.argumentList() != null && ctx.argumentList().expression() != null) {
                 for (PigLatinParser.ExpressionContext expr : ctx.argumentList().expression()) {
                     args.add(evalExpression(expr));
                 }

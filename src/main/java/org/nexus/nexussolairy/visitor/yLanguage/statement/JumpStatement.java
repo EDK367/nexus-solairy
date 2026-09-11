@@ -31,10 +31,13 @@ public class JumpStatement {
             if (!TypeChecker.isAssignable(expected, actual)) {
                 visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Tipo de retorno incompatible. Esperado: " + expected + ", obtenido: " + actual);
             }
+            Object val = yVisitor.getExpressionEval().evalExpression(ctx.expression());
+            visitor.setReturnValue(val);
         } else {
             if (expected != DataType.VOID) {
                 visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "La funcion debe retornar un valor");
             }
+            visitor.setReturnValue(null);
         }
 
         visitor.setShouldReturn(true);

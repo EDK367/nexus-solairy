@@ -29,6 +29,10 @@ public interface VisitorContext {
 
     Object executeFunctionCall(String name, List<Object> arguments);
 
+    default Object executeMethodCall(String varName, String methodName, List<Object> arguments) {
+        return null;
+    }
+
     void reportError(int line, int column, TypeErrorSemantic type, String message);
 
     DataType resolveType(String typeText);

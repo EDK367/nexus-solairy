@@ -27,10 +27,45 @@ public class ConditionStatement {
             }
         }
 
-        for (YParser.BlockContext b : ctx.block()) {
-            visitor.getSymbolTable().pushScope("if");
-            visitor.visit(b);
-            visitor.getSymbolTable().popScope();
+        if (visitor.isInsideMain()) {
+            Object cond = expressionEval.evalExpression(ctx.expression(0));
+            boolean executed = false;
+            if (Boolean.TRUE.equals(cond)) {
+                if (ctx.block(0) != null) {
+                    visitor.getSymbolTable().pushScope("if");
+                    visitor.visit(ctx.block(0));
+                    visitor.getSymbolTable().popScope();
+                }
+                executed = true;
+            } else {
+                int exprCount = ctx.expression().size();
+                for (int i = 1; i < exprCount; i++) {
+                    Object elifCond = expressionEval.evalExpression(ctx.expression(i));
+                    if (Boolean.TRUE.equals(elifCond)) {
+                        if (i < ctx.block().size() && ctx.block(i) != null) {
+                            visitor.getSymbolTable().pushScope("elif");
+                            visitor.visit(ctx.block(i));
+                            visitor.getSymbolTable().popScope();
+                        }
+                        executed = true;
+                        break;
+                    }
+                }
+            }
+            if (!executed && ctx.block().size() > ctx.expression().size()) {
+                YParser.BlockContext elseBlock = ctx.block(ctx.block().size() - 1);
+                if (elseBlock != null) {
+                    visitor.getSymbolTable().pushScope("else");
+                    visitor.visit(elseBlock);
+                    visitor.getSymbolTable().popScope();
+                }
+            }
+        } else {
+            for (YParser.BlockContext b : ctx.block()) {
+                visitor.getSymbolTable().pushScope("if");
+                visitor.visit(b);
+                visitor.getSymbolTable().popScope();
+            }
         }
 
         return DataType.VOID;

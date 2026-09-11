@@ -36,10 +36,13 @@ public class JumpStatement {
             } else if (!TypeChecker.isAssignable(expected, t) && t != Type.ERROR) {
                 visitor.reportError(ctx, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Tipo de retorno incompatible. Esperado: " + expected);
             }
+            Object val = visitor.getExpressionEval().evalExpression(ctx.expression());
+            visitor.setReturnValue(val);
         } else {
             if (expected != Type.VOID) {
                 visitor.reportError(ctx, TypeErrorSemantic.INCOMPATIBLE_TYPES, "El metodo debe retornar un valor");
             }
+            visitor.setReturnValue(null);
         }
         visitor.setShouldReturn(true);
         return DataType.VOID;

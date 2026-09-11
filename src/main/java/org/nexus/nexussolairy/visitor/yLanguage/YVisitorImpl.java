@@ -38,6 +38,7 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
     private boolean shouldReturn = false;
     private Object returnValue = null;
     private InputProvider inputProvider;
+    private Consumer<String> livePrinter;
     private final IOSection ioDelegate;
 
     private final List<String> printOutput = new ArrayList<>();
@@ -54,6 +55,7 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
     public YVisitorImpl(SymbolTable symbolTable, InputProvider inputProvider, Consumer<String> livePrinter) {
         this.symbolTable = symbolTable != null ? symbolTable : new SymbolTable();
         this.inputProvider = inputProvider;
+        this.livePrinter = livePrinter;
         this.expressionDelegate = new ExpressionSection(this);
         this.expressionEval = new ExpressionEval(this);
         this.programDelegate = new ProgramSection(this);
@@ -83,6 +85,14 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
 
     public VariableSection getVariableDelegate() {
         return variableDelegate;
+    }
+
+    public ExpressionEval getExpressionEval() {
+        return expressionEval;
+    }
+
+    public Consumer<String> getLivePrinter() {
+        return livePrinter;
     }
 
     @Override

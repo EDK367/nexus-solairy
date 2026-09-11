@@ -3,10 +3,14 @@ package org.nexus.nexussolairy.visitor.pigLatin;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.PigLatinParserBaseVisitor;
+import org.nexus.nexussolairy.YParser;
+import org.nexus.nexussolairy.ZetarianoParser;
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
+import org.nexus.nexussolairy.model.enums.ScopeKind;
+import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
-import org.nexus.nexussolairy.model.semantic.SemanticError;
-import org.nexus.nexussolairy.model.semantic.SymbolTable;
+import org.nexus.nexussolairy.model.semantic.*;
 import org.nexus.nexussolairy.visitor.InputProvider;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.visitor.pigLatin.expression.ExpressionEval;
@@ -17,10 +21,13 @@ import org.nexus.nexussolairy.visitor.pigLatin.statement.JumpStatement;
 import org.nexus.nexussolairy.visitor.pigLatin.statement.LoopStatement;
 import org.nexus.nexussolairy.visitor.pigLatin.variable.AssignmentDelegate;
 import org.nexus.nexussolairy.visitor.pigLatin.variable.VariableSection;
+import org.nexus.nexussolairy.visitor.yLanguage.YVisitorImpl;
+import org.nexus.nexussolairy.visitor.zetariano.ZetarianoVisitorImpl;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> implements VisitorContext {
@@ -36,6 +43,7 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
     private boolean shouldReturn = false;
     private Object returnValue = null;
     private InputProvider inputProvider;
+    private Consumer<String> livePrinter;
     private final IOSection ioDelegate;
 
     private final List<String> printOutput = new ArrayList<>();
@@ -52,6 +60,7 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
     public PigLatinVisitorImpl(SymbolTable symbolTable, InputProvider inputProvider, Consumer<String> livePrinter) {
         this.symbolTable = symbolTable != null ? symbolTable : new SymbolTable();
         this.inputProvider = inputProvider;
+        this.livePrinter = livePrinter;
         this.ioDelegate = new IOSection(this, expressionDelegate, expressionEval, printOutput, inputProvider, livePrinter);
     }
 
@@ -140,7 +149,138 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
 
     @Override
     public Object executeFunctionCall(String name, List<Object> arguments) {
+        Symbol funcSym = symbolTable.lookup(name);
+        if (funcSym == null) return null;
+
+        Object ast = funcSym.getAstContext();
+        if (ast == null) return null;
+
+        if (funcSym.language == LanguageType.Y_LANG) {
+            YParser.BlockContext blk = null;
+            YParser.ParameterListContext pl = null;
+            if (ast instanceof YParser.VoidFunctionContext vfc) {
+                blk = vfc.block();
+                pl = vfc.parameterList();
+            } else if (ast instanceof YParser.ReturnFunctionContext rfc) {
+                blk = rfc.block();
+                pl = rfc.parameterList();
+            }
+            if (blk == null) return null;
+
+            SymbolTable funcSymbolTable = new SymbolTable(this.symbolTable.getGlobalScope());
+            for (StructInfo s : this.symbolTable.getStructRegistry().values()) {
+                funcSymbolTable.registerStruct(s);
+            }
+            for (ClassSymbol c : this.symbolTable.getClassRegistry().values()) {
+                funcSymbolTable.registerClass(c);
+            }
+
+            funcSymbolTable.pushScope(name);
+
+            if (pl != null && pl.parameter() != null) {
+                int argCount = arguments != null ? arguments.size() : 0;
+                for (int i = 0; i < pl.parameter().size(); i++) {
+                    YParser.ParameterContext p = pl.parameter(i);
+                    String pName = p.ID(p.ID().size() - 1).getText();
+                    DataType pType = DataType.typeToken(p.type() != null ? p.type().getText() : "");
+                    Object pVal = (i < argCount) ? arguments.get(i) : null;
+                    Symbol paramSym = new Symbol(pName, pType, SymbolKind.VARIABLE, ScopeKind.LOCAL, LanguageType.Y_LANG, pVal, p.getStart().getLine(), p.getStart().getCharPositionInLine());
+                    funcSymbolTable.declare(paramSym);
+                }
+            }
+
+            YVisitorImpl funcVisitor = new YVisitorImpl(funcSymbolTable, this.inputProvider, this.livePrinter);
+            funcVisitor.setCurrentFunction(funcSym);
+            funcVisitor.setCurrentFunctionReturnType(funcSym.returnType != null ? funcSym.returnType : funcSym.type);
+            funcVisitor.setInsideFunction(true);
+            funcVisitor.setInsideMain(true);
+
+            funcVisitor.visitBlock(blk);
+
+            this.printOutput.addAll(funcVisitor.getPrintOutput());
+
+            return funcVisitor.getReturnValue();
+        }
+
         return null;
+    }
+
+    @Override
+    public Object executeMethodCall(String varName, String methodName, List<Object> arguments) {
+        Symbol varSym = symbolTable.lookup(varName);
+        if (varSym == null) return null;
+        if (!(varSym.value instanceof Map<?, ?>)) return null;
+        @SuppressWarnings("unchecked")
+        Map<String, Object> objInstance = (Map<String, Object>) varSym.value;
+
+        String className = varSym.structTypeName;
+        if (className == null) return null;
+
+        ClassSymbol cls = symbolTable.lookupClass(className);
+        if (cls == null) {
+            Symbol s = symbolTable.getGlobalScope().resolve(className);
+            if (s instanceof ClassSymbol cs) cls = cs;
+        }
+        if (cls == null) return null;
+
+        List<Symbol> methods = cls.resolveMethod(methodName);
+        if (methods == null || methods.isEmpty()) return null;
+
+        FunctionSymbol targetMethod = null;
+        int argCount = arguments != null ? arguments.size() : 0;
+        for (Symbol m : methods) {
+            if (m instanceof FunctionSymbol fs && fs.getParams().size() == argCount) {
+                targetMethod = fs;
+                break;
+            }
+        }
+        if (targetMethod == null && methods.get(0) instanceof FunctionSymbol fs) {
+            targetMethod = fs;
+        }
+        if (targetMethod == null) return null;
+
+        Object ast = targetMethod.getAstContext();
+        if (!(ast instanceof ZetarianoParser.MethodDeclContext mCtx)) return null;
+
+        SymbolTable methodSymbolTable = new SymbolTable(this.symbolTable.getGlobalScope());
+        for (ClassSymbol c : this.symbolTable.getClassRegistry().values()) {
+            methodSymbolTable.registerClass(c);
+        }
+        for (StructInfo s : this.symbolTable.getStructRegistry().values()) {
+            methodSymbolTable.registerStruct(s);
+        }
+
+        Scope instanceScope = new Scope("instance_" + varName, methodSymbolTable.getGlobalScope());
+        for (Symbol f : cls.getFields().values()) {
+            Object fVal = objInstance.containsKey(f.getName()) ? objInstance.get(f.getName()) : f.getValue();
+            Symbol fSym = new Symbol(f.getName(), f.getType(), SymbolKind.VARIABLE, ScopeKind.LOCAL, LanguageType.ZETARIANO, fVal, f.line, f.column);
+            instanceScope.declare(fSym);
+        }
+        methodSymbolTable.pushScope(instanceScope);
+
+        methodSymbolTable.pushScope("method_" + methodName);
+        for (int i = 0; i < targetMethod.getParams().size(); i++) {
+            VariableSymbol param = targetMethod.getParams().get(i);
+            Object pVal = (arguments != null && i < arguments.size()) ? arguments.get(i) : null;
+            Symbol pSym = new Symbol(param.getName(), param.getType(), SymbolKind.VARIABLE, ScopeKind.LOCAL, LanguageType.ZETARIANO, pVal, param.line, param.column);
+            methodSymbolTable.getCurrentScope().declare(pSym);
+        }
+
+        ZetarianoVisitorImpl methodVisitor = new ZetarianoVisitorImpl(methodSymbolTable, this.inputProvider, this.livePrinter);
+        methodVisitor.setCurrentClass(cls);
+        methodVisitor.setCurrentMethod(targetMethod);
+        methodVisitor.setCurrentFunctionReturnType(targetMethod.getType());
+        methodVisitor.setInsideFunction(true);
+
+        methodVisitor.visitBlock(mCtx.block());
+
+        for (Symbol f : instanceScope.getSymbols().values()) {
+            objInstance.put(f.getName(), f.getValue());
+        }
+
+        this.printOutput.addAll(methodVisitor.getPrintOutput());
+
+        return methodVisitor.getReturnValue();
     }
 
     @Override

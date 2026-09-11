@@ -5,6 +5,7 @@ import org.nexus.nexussolairy.model.enums.DataType;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.ClassSymbol;
+import org.nexus.nexussolairy.model.semantic.FunctionSymbol;
 import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.visitor.VisitorContext;
@@ -194,8 +195,23 @@ public class ExpressionSection {
                 visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.FUNCTION_NOT_FOUND, "Funcion '" + name + "' no declarada.");
                 return DataType.ERROR;
             }
+            if (s.kind != SymbolKind.FUNCTION) {
+                visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.FUNCTION_NOT_FOUND, "'" + name + "' no es una funcion.");
+                return DataType.ERROR;
+            }
+            int argCount = (ctx.argumentList() != null && ctx.argumentList().expression() != null) ? ctx.argumentList().expression().size() : 0;
+            int expected = -1;
+            if (s instanceof FunctionSymbol fs && fs.getParams() != null) {
+                expected = fs.getParams().size();
+            } else if (s.paramTypes != null) {
+                expected = s.paramTypes.size();
+            }
+            if (expected != -1 && expected != argCount) {
+                visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.ARGUMENT_COUNT_MISMATCH, "Funcion '" + name + "' esperaba " + expected + " argumentos pero se recibieron " + argCount + ".");
+                return DataType.ERROR;
+            }
             if (ctx.argumentList() != null) visitor.visit(ctx.argumentList());
-            return s.returnType != null ? s.returnType : s.type;
+            return s.returnType != null ? s.returnType : (s.type != null ? s.type : DataType.VOID);
         }
 
         if (ctx.ID().size() == 2 && ctx.LPAREN() != null) {
@@ -206,19 +222,38 @@ public class ExpressionSection {
                 visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.UNDECLARED, "Variable '" + var + "' no declarada.");
                 return DataType.ERROR;
             }
-            Symbol m = visitor.getSymbolTable().lookup(method);
-            if (s.structTypeName != null) {
-                ClassSymbol cls = visitor.getSymbolTable().lookupClass(s.structTypeName);
-                if (cls != null) {
-                    List<Symbol> ms = cls.resolveMethod(method);
-                    if (ms != null && !ms.isEmpty()) {
-                        m = ms.get(0);
-                    }
+            String structName = s.structTypeName != null ? s.structTypeName : (s.type != null ? s.type.name().toLowerCase() : "");
+            ClassSymbol cls = visitor.getSymbolTable().lookupClass(structName);
+            if (cls == null) {
+                Symbol cs = visitor.getSymbolTable().getGlobalScope().resolve(structName);
+                if (cs instanceof ClassSymbol c) cls = c;
+            }
+            if (cls == null) {
+                visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.NOT_STRUCT, "Variable '" + var + "' no es una clase.");
+                return DataType.ERROR;
+            }
+            List<Symbol> ms = cls.resolveMethod(method);
+            if (ms == null || ms.isEmpty()) {
+                visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.FUNCTION_NOT_FOUND, "Metodo '" + method + "' no existe en la clase '" + structName + "'.");
+                return DataType.ERROR;
+            }
+            int argCount = (ctx.argumentList() != null && ctx.argumentList().expression() != null) ? ctx.argumentList().expression().size() : 0;
+            FunctionSymbol match = null;
+            for (Symbol mSym : ms) {
+                if (mSym instanceof FunctionSymbol fs && fs.getParams() != null && fs.getParams().size() == argCount) {
+                    match = fs;
+                    break;
                 }
             }
+            if (match == null && !ms.isEmpty() && ms.get(0) instanceof FunctionSymbol fs && fs.getParams() == null && argCount == 0) {
+                match = fs;
+            }
+            if (match == null) {
+                visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.ARGUMENT_COUNT_MISMATCH, "Sobrecarga no encontrada para '" + method + "' con " + argCount + " argumentos en la clase '" + structName + "'.");
+                return DataType.ERROR;
+            }
             if (ctx.argumentList() != null) visitor.visit(ctx.argumentList());
-            if (m != null) return m.returnType != null ? m.returnType : m.type;
-            return DataType.VOID;
+            return match.returnType != null ? match.returnType : (match.type != null ? match.type : DataType.VOID);
         }
 
         return DataType.ERROR;
