@@ -153,6 +153,7 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
         DataType primitive = DataType.typeToken(typeText);
         if (primitive != DataType.ERROR) return primitive;
         if (symbolTable.structExists(typeText)) return DataType.STRUCT;
+        if (symbolTable.classExists(typeText)) return DataType.CLASS;
         return DataType.ERROR;
     }
 

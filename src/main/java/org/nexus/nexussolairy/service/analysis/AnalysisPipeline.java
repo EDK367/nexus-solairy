@@ -152,37 +152,37 @@ public class AnalysisPipeline {
         return parent != null ? parent : System.getProperty("user.dir");
     }
 
-    // si el immport falla
-    private SymbolTable buildPreloadedSymbolTable(String source, LanguageType language, String baseDirectory, List<SemanticError> importErrors) {
+    private SymbolTable buildPreloadedSymbolTable(String source, LanguageType language,
+                                                   String baseDirectory, List<SemanticError> importErrors) {
         List<String> importPaths = extractImportPaths(source, language);
         if (importPaths.isEmpty()) return new SymbolTable();
-
         ImportResolver resolver = new ImportResolver();
         Scope globalScope = new GlobalScope();
-        List<Symbol> allImported = new ArrayList<>();
-
+        List<StructInfo> allStructs = new ArrayList<>();
+        List<ClassSymbol> allClasses = new ArrayList<>();
         for (String importPath : importPaths) {
-            List<Symbol> imported = resolver.resolveImport(importPath, baseDirectory);
+            ImportResolver.ImportResult imported = resolver.resolveImport(importPath, baseDirectory);
+
             if (imported.isEmpty()) {
-                importErrors.add(new SemanticError(1, 0, TypeErrorSemantic.IMPORT_ERROR.name(), "No se pudo resolver la importacion: '" + importPath + "'. " + "Verifique que el archivo exista en: " + baseDirectory));
-            } else {
-                for (Symbol sym : imported) {
-                    globalScope.declare(sym);
-                    allImported.add(sym);
-                }
+                importErrors.add(new SemanticError(1, 0, "IMPORT_ERROR",
+                    "No se pudo resolver la importacion: '" + importPath + "'. " +
+                    "Verifique que el archivo exista en: " + baseDirectory));
+                continue;
             }
-        }
-
-        SymbolTable tableGlobal = new SymbolTable(globalScope);
-
-        // registrar la clase
-        for (Symbol symbol : allImported) {
-            if (symbol instanceof ClassSymbol cls) {
-                tableGlobal.registerClass(cls);
+            for (Symbol sym : imported.symbols) {
+                globalScope.declare(sym);
             }
+            allStructs.addAll(imported.structs.values());
+            allClasses.addAll(imported.classes.values());
         }
-
-        return tableGlobal;
+        SymbolTable table = new SymbolTable(globalScope);
+        for (StructInfo si : allStructs) {
+            table.registerStruct(si);
+        }
+        for (ClassSymbol cls : allClasses) {
+            table.registerClass(cls);
+        }
+        return table;
     }
 
 

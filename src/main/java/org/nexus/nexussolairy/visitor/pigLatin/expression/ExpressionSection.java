@@ -4,10 +4,13 @@ import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.model.enums.DataType;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.semantic.ClassSymbol;
 import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.model.semantic.TypeChecker;
+
+import java.util.List;
 
 public class ExpressionSection {
     private final VisitorContext visitor;
@@ -204,6 +207,15 @@ public class ExpressionSection {
                 return DataType.ERROR;
             }
             Symbol m = visitor.getSymbolTable().lookup(method);
+            if (s.structTypeName != null) {
+                ClassSymbol cls = visitor.getSymbolTable().lookupClass(s.structTypeName);
+                if (cls != null) {
+                    List<Symbol> ms = cls.resolveMethod(method);
+                    if (ms != null && !ms.isEmpty()) {
+                        m = ms.get(0);
+                    }
+                }
+            }
             if (ctx.argumentList() != null) visitor.visit(ctx.argumentList());
             if (m != null) return m.returnType != null ? m.returnType : m.type;
             return DataType.VOID;
@@ -214,6 +226,15 @@ public class ExpressionSection {
 
     private DataType resolveFieldType(Symbol s, String field, int line, int col) {
         String structName = s.structTypeName != null ? s.structTypeName : s.type.name().toLowerCase();
+        ClassSymbol cls = visitor.getSymbolTable().lookupClass(structName);
+        if (cls != null) {
+            Symbol f = cls.resolveField(field);
+            if (f == null) {
+                visitor.reportError(line, col, TypeErrorSemantic.ATTRIBUTE_NOT_FOUND, "Campo '" + field + "' no existe en la clase '" + structName + "'.");
+                return DataType.ERROR;
+            }
+            return f.getType();
+        }
         StructInfo info = visitor.getSymbolTable().lookupStruct(structName);
         if (info == null) {
             visitor.reportError(line, col, TypeErrorSemantic.NOT_STRUCT, "Tipo '" + structName + "' no es una estructura.");

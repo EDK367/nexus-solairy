@@ -48,6 +48,10 @@ public class Symbol {
         this(name, DataType.STRUCT, SymbolKind.VARIABLE, scope, language, value, line, column, null, null, null, null, structTypeName);
     }
 
+    public Symbol(String name, DataType type, SymbolKind kind, ScopeKind scope, LanguageType language, Object value, int line, int column, String structTypeName) {
+        this(name, type, kind, scope, language, value, line, column, null, null, null, null, structTypeName);
+    }
+
     public Symbol(String name, DataType type, SymbolKind kind, ScopeKind scope, LanguageType language, Object value, int line, int column, List<DataType> paramTypes, DataType returnType, DataType elementType, Integer arraySize, String structTypeName) {
         this.name = name;
         this.type = type;

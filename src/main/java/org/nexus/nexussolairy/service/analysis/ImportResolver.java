@@ -4,7 +4,8 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.nexus.nexussolairy.*;
 import org.nexus.nexussolairy.model.enums.LanguageType;
-import org.nexus.nexussolairy.model.semantic.Scope;
+import org.nexus.nexussolairy.model.semantic.ClassSymbol;
+import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.service.parser.YIdentationLexer;
 import org.nexus.nexussolairy.visitor.pigLatin.PigLatinVisitorImpl;
@@ -16,40 +17,95 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 // encargado para las importaciones externas
 public class ImportResolver {
 
-    public List<Symbol> resolveImport(String importPath, String baseDirectory) {
+    public static class ImportResult {
+        public final List<Symbol> symbols;
+        public final Map<String, StructInfo> structs;   // de .y
+        public final Map<String, ClassSymbol> classes;  // de .z
 
-        List<Symbol> importedSymbols = new ArrayList<>();
+        public ImportResult(List<Symbol> symbols, 
+                            Map<String, StructInfo> structs,
+                            Map<String, ClassSymbol> classes) {
+            this.symbols = symbols;
+            this.structs = structs;
+            this.classes = classes;
+        }
+        
+        public boolean isEmpty() {
+            return symbols.isEmpty() && structs.isEmpty() && classes.isEmpty();
+        }
+    }
 
+    public ImportResult resolveImport(String importPath, String baseDirectory) {
         String filePath = resolveFilePath(importPath, baseDirectory);
-
-        if (filePath == null) return importedSymbols;
-
+        if (filePath == null) return new ImportResult(List.of(), Map.of(), Map.of());
         String source;
-        try {
-            source = Files.readString(Path.of(filePath));
-        } catch (IOException ex) {
-            return importedSymbols;
-        }
-
+        try { source = Files.readString(Path.of(filePath)); }
+        catch (IOException ex) { return new ImportResult(List.of(), Map.of(), Map.of()); }
         LanguageType language = LanguageType.fromFileName(filePath);
+        if (language == LanguageType.UNKNOWN) return new ImportResult(List.of(), Map.of(), Map.of());
+        return switch (language) {
+            case PIG_LATIN -> importFromPig(source);
+            case ZETARIANO -> importFromZetariano(source, filePath);
+            case Y_LANG    -> importFromY(source);
+            default        -> new ImportResult(List.of(), Map.of(), Map.of());
+        };
+    }
 
-        if (language == LanguageType.UNKNOWN) return importedSymbols;
-
-        Scope globalScope = analyzeAndGetGlobalScope(source, filePath, language);
-
-        if (globalScope == null) return importedSymbols;
-
-        for (Map.Entry<String, Symbol> entry : globalScope.getSymbols().entrySet()) {
-            importedSymbols.add(entry.getValue());
+    private ImportResult importFromY(String source) {
+        try {
+            YIdentationLexer lexer = new YIdentationLexer(CharStreams.fromString(source));
+            lexer.removeErrorListeners();
+            YParser parser = new YParser(new CommonTokenStream(lexer));
+            parser.removeErrorListeners();
+            YVisitorImpl visitor = new YVisitorImpl();
+            visitor.visit(parser.program());
+            List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
+            Map<String, StructInfo> structs = new HashMap<>(visitor.getSymbolTable().getStructRegistry());
+            
+            return new ImportResult(symbols, structs, Map.of());
+        } catch (Exception e) {
+            return new ImportResult(List.of(), Map.of(), Map.of());
         }
+    }
 
-        return importedSymbols;
+    private ImportResult importFromZetariano(String source, String filePath) {
+        try {
+            ZetarianoLexer lexer = new ZetarianoLexer(CharStreams.fromString(source));
+            lexer.removeErrorListeners();
+            ZetarianoParser parser = new ZetarianoParser(new CommonTokenStream(lexer));
+            parser.removeErrorListeners();
+            ZetarianoVisitorImpl visitor = new ZetarianoVisitorImpl();
+            if (filePath != null) visitor.setFileName(filePath);
+            visitor.visit(parser.program());
+            List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
+            Map<String, ClassSymbol> classes = new HashMap<>(visitor.getSymbolTable().getClassRegistry());
+            
+            return new ImportResult(symbols, Map.of(), classes);
+        } catch (Exception e) {
+            return new ImportResult(List.of(), Map.of(), Map.of());
+        }
+    }
+
+    private ImportResult importFromPig(String source) {
+        try {
+            PigLatinLexer lexer = new PigLatinLexer(CharStreams.fromString(source));
+            lexer.removeErrorListeners();
+            PigLatinParser parser = new PigLatinParser(new CommonTokenStream(lexer));
+            parser.removeErrorListeners();
+            PigLatinVisitorImpl visitor = new PigLatinVisitorImpl();
+            visitor.visit(parser.program());
+            List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
+            return new ImportResult(symbols, Map.of(), Map.of());
+        } catch (Exception e) {
+            return new ImportResult(List.of(), Map.of(), Map.of());
+        }
     }
 
     private String resolveFilePath(String importPath, String baseDirectory) {
@@ -93,65 +149,5 @@ public class ImportResolver {
 
         // si no hay extesion reconocida
         return path.replace(".", "/");
-    }
-
-    // analisis de cada lenguaje
-    private Scope analyzeAndGetGlobalScope(String source, String filePath, LanguageType language) {
-        return switch (language) {
-            case PIG_LATIN -> analyzePigLatin(source);
-            case ZETARIANO -> analyzeZetariano(source, filePath);
-            case Y_LANG -> analyzeYLanguage(source);
-            default -> null;
-        };
-    }
-
-    // metodos auxiliares para los lenguajes
-    private Scope analyzePigLatin(String source) {
-        try {
-            PigLatinLexer lexer = new PigLatinLexer(CharStreams.fromString(source));
-            lexer.removeErrorListeners();
-            CommonTokenStream tokens = new CommonTokenStream(lexer);
-            PigLatinParser parser = new PigLatinParser(tokens);
-            parser.removeErrorListeners();
-            PigLatinParser.ProgramContext tree = parser.program();
-            PigLatinVisitorImpl visitor = new PigLatinVisitorImpl();
-            visitor.visit(tree);
-            return visitor.getSymbolTable().getGlobalScope();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private Scope analyzeYLanguage(String source) {
-        try {
-            YIdentationLexer lexer = new YIdentationLexer(CharStreams.fromString(source));
-            lexer.removeErrorListeners();
-            CommonTokenStream tokens = new CommonTokenStream(lexer);
-            YParser parser = new YParser(tokens);
-            parser.removeErrorListeners();
-            YParser.ProgramContext tree = parser.program();
-            YVisitorImpl visitor = new YVisitorImpl();
-            visitor.visit(tree);
-            return visitor.getSymbolTable().getGlobalScope();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private Scope analyzeZetariano(String source, String filePath) {
-        try {
-            ZetarianoLexer lexer = new ZetarianoLexer(CharStreams.fromString(source));
-            lexer.removeErrorListeners();
-            CommonTokenStream tokens = new CommonTokenStream(lexer);
-            ZetarianoParser parser = new ZetarianoParser(tokens);
-            parser.removeErrorListeners();
-            ZetarianoParser.ProgramContext tree = parser.program();
-            ZetarianoVisitorImpl visitor = new ZetarianoVisitorImpl();
-            if (filePath != null) visitor.setFileName(filePath);
-            visitor.visit(tree);
-            return visitor.getSymbolTable().getGlobalScope();
-        } catch (Exception e) {
-            return null;
-        }
     }
 }

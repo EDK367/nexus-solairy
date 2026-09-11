@@ -4,6 +4,7 @@ import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.model.enums.DataType;
 import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.semantic.ClassSymbol;
 import org.nexus.nexussolairy.model.semantic.StructInfo;
 import org.nexus.nexussolairy.model.semantic.Symbol;
 import org.nexus.nexussolairy.visitor.VisitorContext;
@@ -149,14 +150,23 @@ public class AssignmentDelegate {
     }
 
     private DataType resolveFieldType(Symbol sym, String field, int line, int col) {
-        String structTypeName = sym.structTypeName != null ? sym.structTypeName : sym.type.name().toLowerCase();
-        StructInfo info = visitor.getSymbolTable().lookupStruct(structTypeName);
+        String typeName = sym.structTypeName != null ? sym.structTypeName : sym.type.name().toLowerCase();
+        ClassSymbol cls = visitor.getSymbolTable().lookupClass(typeName);
+        if (cls != null) {
+            Symbol f = cls.resolveField(field);
+            if (f == null) {
+                visitor.reportError(line, col, TypeErrorSemantic.ATTRIBUTE_NOT_FOUND, "Campo '" + field + "' no existe en la clase '" + typeName + "'.");
+                return DataType.ERROR;
+            }
+            return f.getType();
+        }
+        StructInfo info = visitor.getSymbolTable().lookupStruct(typeName);
         if (info == null) {
-            visitor.reportError(line, col, TypeErrorSemantic.NOT_STRUCT, "Tipo '" + structTypeName + "' no es una estructura o no esta declarada.");
+            visitor.reportError(line, col, TypeErrorSemantic.NOT_STRUCT, "Tipo '" + typeName + "' no es una estructura o no esta declarada.");
             return DataType.ERROR;
         }
         if (!info.hasField(field)) {
-            visitor.reportError(line, col, TypeErrorSemantic.ATTRIBUTE_NOT_FOUND, "Campo '" + field + "' no existe en '" + structTypeName + "'.");
+            visitor.reportError(line, col, TypeErrorSemantic.ATTRIBUTE_NOT_FOUND, "Campo '" + field + "' no existe en '" + typeName + "'.");
             return DataType.ERROR;
         }
         return info.getFieldType(field);
