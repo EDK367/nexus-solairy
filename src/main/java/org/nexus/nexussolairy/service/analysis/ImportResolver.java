@@ -61,22 +61,38 @@ public class ImportResolver {
             importPath = importPath.substring(1, importPath.length() - 1);
         }
 
+        // conversion de archivos estilo carpeta/carpeta/file.extension
+        String convertedPath = convertDotPathToFilePath(importPath);
+
         // busqueda del archivo
-        Path direct = Paths.get(baseDirectory, importPath);
+        Path direct = Paths.get(baseDirectory, convertedPath);
 
         if (Files.exists(direct)) return direct.toString();
 
-        // no contiene extension es un error, pero se trata de agregar la extesion para resolver
-        if (!importPath.contains(".")) {
-            for (String ext : new String[]{".z", ".y"}) {
-                Path candidate = Paths.get(baseDirectory, importPath + ext);
+        // si el path ya iba bien
+        Path fallback = Paths.get(baseDirectory, importPath);
+        if (Files.exists(fallback)) return fallback.toString();
+        return null;
+    }
 
-                if (Files.exists(candidate)) return candidate.toString();
+    /* uso de subdirectorios
+       solo toma (id . id ) esto significa que file extesion y el resto de puntos
+       de derecha para izquierda se toma como carpetas
+     */
+    private String convertDotPathToFilePath(String path) {
+        String[] extensions = {".pig", ".z", ".y"};
 
+        for (String ext : extensions) {
+            if (path.contains(ext)) {
+                // quitar la extension y convertir en carpetas
+                String withoutExt = path.substring(0, path.length() - ext.length());
+                String withSlashes = withoutExt.replace(".", "/");
+                return withSlashes + ext;
             }
         }
 
-        return null;
+        // si no hay extesion reconocida
+        return path.replace(".", "/");
     }
 
     // analisis de cada lenguaje
