@@ -1,6 +1,7 @@
 package org.nexus.nexussolairy.patron;
 
 import org.nexus.nexussolairy.model.enums.LanguageType;
+import org.nexus.nexussolairy.model.semantic.SymbolTable;
 import org.nexus.nexussolairy.visitor.InputProvider;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.visitor.pigLatin.PigLatinVisitorImpl;
@@ -22,6 +23,16 @@ public class VisitorFactory {
             case Y_LANG -> new YVisitorImpl(inputProvider, livePrinter);
             case ZETARIANO -> new ZetarianoVisitorImpl(inputProvider, livePrinter);
             default -> null;
+        };
+    }
+
+    public static VisitorContext create(LanguageType language, SymbolTable symbolTable, InputProvider inputProvider, Consumer<String> livePrinter) {
+        if (language == null) return null;
+        return switch (language) {
+            case PIG_LATIN -> new PigLatinVisitorImpl(symbolTable, inputProvider, livePrinter);
+            case Y_LANG    -> new YVisitorImpl(symbolTable, inputProvider, livePrinter);
+            case ZETARIANO -> new ZetarianoVisitorImpl(symbolTable, inputProvider, livePrinter);
+            default        -> null;
         };
     }
 }

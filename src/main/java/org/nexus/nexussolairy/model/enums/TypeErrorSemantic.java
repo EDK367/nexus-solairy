@@ -2,6 +2,7 @@ package org.nexus.nexussolairy.model.enums;
 
 public enum TypeErrorSemantic {
     INCOMPATIBLE_TYPES,
+    IMPORT_ERROR,
     REDECLARACION,
     NOT_BOOLEAN,
     NOT_COMPATIBLE,

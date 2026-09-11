@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 
 public class YVisitorImpl extends YParserBaseVisitor<DataType> implements VisitorContext {
 
-    private final SymbolTable symbolTable = new SymbolTable();
+    private final SymbolTable symbolTable;
     private DataType currentFunctionReturnType = DataType.VOID;
     private Symbol currentFunction = null;
     private boolean insideLoop = false;
@@ -42,14 +42,40 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
 
     private final List<String> printOutput = new ArrayList<>();
 
-    private final ExpressionSection expressionDelegate = new ExpressionSection(this);
-    private final ExpressionEval expressionEval = new ExpressionEval(this);
-    private final ProgramSection programDelegate = new ProgramSection(this);
-    private final VariableSection variableDelegate = new VariableSection(this, expressionDelegate, expressionEval);
-    private final AssignmentDelegate assignmentDelegate = new AssignmentDelegate(this, expressionEval);
-    private final ConditionStatement conditionDelegate = new ConditionStatement(this, expressionEval);
-    private final LoopStatement loopDelegate = new LoopStatement(this, expressionEval);
-    private final JumpStatement jumpDelegate = new JumpStatement(this);
+    private final ExpressionSection expressionDelegate;
+    private final ExpressionEval expressionEval;
+    private final ProgramSection programDelegate;
+    private final VariableSection variableDelegate;
+    private final AssignmentDelegate assignmentDelegate;
+    private final ConditionStatement conditionDelegate;
+    private final LoopStatement loopDelegate;
+    private final JumpStatement jumpDelegate;
+
+    public YVisitorImpl(SymbolTable symbolTable, InputProvider inputProvider, Consumer<String> livePrinter) {
+        this.symbolTable = symbolTable != null ? symbolTable : new SymbolTable();
+        this.inputProvider = inputProvider;
+        this.expressionDelegate = new ExpressionSection(this);
+        this.expressionEval = new ExpressionEval(this);
+        this.programDelegate = new ProgramSection(this);
+        this.variableDelegate = new VariableSection(this, expressionDelegate, expressionEval);
+        this.assignmentDelegate = new AssignmentDelegate(this, expressionEval);
+        this.conditionDelegate = new ConditionStatement(this, expressionEval);
+        this.loopDelegate = new LoopStatement(this, expressionEval);
+        this.jumpDelegate = new JumpStatement(this);
+        this.ioDelegate = new IOSection(this, expressionDelegate, expressionEval, printOutput, inputProvider, livePrinter);
+    }
+
+    public YVisitorImpl(InputProvider inputProvider, Consumer<String> livePrinter) {
+        this(new SymbolTable(), inputProvider, livePrinter);
+    }
+
+    public YVisitorImpl(InputProvider inputProvider) {
+        this(new SymbolTable(), inputProvider, null);
+    }
+
+    public YVisitorImpl() {
+        this(new SymbolTable(), () -> "", null);
+    }
 
     public AssignmentDelegate getAssignmentDelegate() {
         return assignmentDelegate;
@@ -57,19 +83,6 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
 
     public VariableSection getVariableDelegate() {
         return variableDelegate;
-    }
-
-    public YVisitorImpl(InputProvider inputProvider, Consumer<String> livePrinter) {
-        this.inputProvider = inputProvider;
-        this.ioDelegate = new IOSection(this, expressionDelegate, expressionEval, printOutput, inputProvider, livePrinter);
-    }
-
-    public YVisitorImpl(InputProvider inputProvider) {
-        this(inputProvider, null);
-    }
-
-    public YVisitorImpl() {
-        this(() -> "", null);
     }
 
     @Override

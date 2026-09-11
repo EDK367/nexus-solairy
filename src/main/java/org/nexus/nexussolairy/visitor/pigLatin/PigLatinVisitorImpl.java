@@ -25,7 +25,8 @@ import java.util.function.Consumer;
 
 public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> implements VisitorContext {
 
-    private final SymbolTable symbolTable = new SymbolTable();
+    // tabla precargada
+    private final SymbolTable symbolTable;
     private DataType currentFunctionReturnType = DataType.VOID;
     private boolean insideLoop = false;
     private boolean insideMain = false;
@@ -48,22 +49,23 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
     private final LoopStatement loopDelegate = new LoopStatement(this, expressionEval);
     private final JumpStatement jumpDelegate = new JumpStatement(this);
 
-    public PigLatinVisitorImpl(InputProvider inputProvider, Consumer<String> livePrinter) {
+    public PigLatinVisitorImpl(SymbolTable symbolTable, InputProvider inputProvider, Consumer<String> livePrinter) {
+        this.symbolTable = symbolTable != null ? symbolTable : new SymbolTable();
         this.inputProvider = inputProvider;
         this.ioDelegate = new IOSection(this, expressionDelegate, expressionEval, printOutput, inputProvider, livePrinter);
     }
 
+
+    public PigLatinVisitorImpl(InputProvider inputProvider, Consumer<String> livePrinter) {
+        this(new SymbolTable(), inputProvider, livePrinter);
+    }
+
     public PigLatinVisitorImpl(InputProvider inputProvider) {
-        this(inputProvider, null);
+        this(new SymbolTable(), inputProvider, null);
     }
 
     public PigLatinVisitorImpl() {
-        this(new InputProvider() {
-            @Override
-            public String readLine() {
-                return "";
-            }
-        }, null);
+        this(new SymbolTable(), () -> "", null);
     }
 
     @Override

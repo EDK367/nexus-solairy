@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 
 public class ZetarianoVisitorImpl extends ZetarianoParserBaseVisitor<DataType> implements VisitorContext {
 
-    private final SymbolTable symbolTable = new SymbolTable();
+    private final SymbolTable symbolTable;
     private DataType currentFunctionReturnType = DataType.VOID;
     private ClassSymbol currentClass = null;
     private FunctionSymbol currentMethod = null;
@@ -52,7 +52,8 @@ public class ZetarianoVisitorImpl extends ZetarianoParserBaseVisitor<DataType> i
     private final JumpStatement jumpDelegate;
     private final IOSection ioDelegate;
 
-    public ZetarianoVisitorImpl(InputProvider inputProvider, Consumer<String> livePrinter) {
+    public ZetarianoVisitorImpl(SymbolTable symbolTable, InputProvider inputProvider, Consumer<String> livePrinter) {
+        this.symbolTable = symbolTable != null ? symbolTable : new SymbolTable();
         this.inputProvider = inputProvider;
         this.livePrinter = livePrinter;
         this.expressionDelegate = new ExpressionSection(this);
@@ -66,12 +67,16 @@ public class ZetarianoVisitorImpl extends ZetarianoParserBaseVisitor<DataType> i
         this.ioDelegate = new IOSection(this, expressionDelegate, expressionEval, printOutput, inputProvider, livePrinter);
     }
 
+    public ZetarianoVisitorImpl(InputProvider inputProvider, Consumer<String> livePrinter) {
+        this(new SymbolTable(), inputProvider, livePrinter);
+    }
+
     public ZetarianoVisitorImpl(InputProvider inputProvider) {
-        this(inputProvider, null);
+        this(new SymbolTable(), inputProvider, null);
     }
 
     public ZetarianoVisitorImpl() {
-        this(() -> "", null);
+        this(new SymbolTable(), () -> "", null);
     }
 
     public void check(ParseTree tree) {

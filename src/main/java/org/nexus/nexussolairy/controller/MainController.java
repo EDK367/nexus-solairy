@@ -1124,9 +1124,11 @@ public class MainController implements Initializable {
 
         var session = workspaceService.createNewExecutionSession(targetName, lang);
 
+        String absolutePath = (activeTab.getFile() != null ? activeTab.getFile().getAbsolutePath() : targetName);
+
         var result = analysisPipeline.analyze(
                 source,
-                targetName,
+                absolutePath,
                 lang,
                 () -> "",
                 line -> appendTerminalLog("PRINT", line)
