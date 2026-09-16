@@ -100,7 +100,11 @@ target : ID
        | ID (LBRACK expression RBRACK)+
        | ID (DOT ID)+
        | ID (DOT ID)+ (LBRACK expression RBRACK)+
+       | chainedTarget
        ;
+
+chainedTarget : ID ( (DOT ID) | (LBRACK expression RBRACK) )+
+              ;
 
 // statement if
 ifStmt : SI LPAREN expression RPAREN ENTONCES newLine+ block
@@ -202,7 +206,11 @@ unaryExpression : NOT unaryExpression
                 | postfixExpression
                 ;
 
-postfixExpression : primaryExpression (INC | DEC)?
+postfixExpression : primaryExpression
+                  | postfixExpression DOT ID
+                  | postfixExpression DOT ID LPAREN argumentList? RPAREN
+                  | postfixExpression LBRACK expression RBRACK
+                  | postfixExpression (INC | DEC)
                   ;
 
 primaryExpression : literal

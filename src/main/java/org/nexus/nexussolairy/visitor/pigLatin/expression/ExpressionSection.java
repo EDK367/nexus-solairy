@@ -116,13 +116,78 @@ public class ExpressionSection {
 
     public DataType visitPostfixExpression(PigLatinParser.PostfixExpressionContext ctx) {
         if (ctx == null) return DataType.ERROR;
-        DataType t = visitor.visit(ctx.primaryExpression());
-        if (ctx.INC() != null || ctx.DEC() != null) {
-            if (t != DataType.NUMERUS && t != DataType.DECIMALIS) {
-                visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.INCOMPATIBLE_TYPES, "Incremento/Decremento solo en tipos numericos.");
-            }
+        if (ctx.primaryExpression() != null) {
+            return visitor.visit(ctx.primaryExpression());
         }
-        return t;
+        if (ctx.postfixExpression() != null) {
+            DataType t = visitor.visit(ctx.postfixExpression());
+            int line = ctx.getStart().getLine();
+            int col = ctx.getStart().getCharPositionInLine();
+
+            if (ctx.DOT() != null && ctx.LPAREN() != null) {
+                String method = ctx.ID().getText();
+                String targetName = ctx.postfixExpression().getText();
+                Symbol s = visitor.getSymbolTable().lookup(targetName);
+                String className = (s != null && s.structTypeName != null) ? s.structTypeName : targetName;
+                ClassSymbol cls = visitor.getSymbolTable().lookupClass(className);
+                if (cls == null) {
+                    Symbol cs = visitor.getSymbolTable().getGlobalScope().resolve(className);
+                    if (cs instanceof ClassSymbol c) cls = c;
+                }
+                if (cls == null) {
+                    visitor.reportError(line, col, TypeErrorSemantic.NOT_STRUCT, "Variable '" + targetName + "' no es una clase.");
+                    return DataType.ERROR;
+                }
+                List<Symbol> ms = cls.resolveMethod(method);
+                if (ms == null || ms.isEmpty()) {
+                    visitor.reportError(line, col, TypeErrorSemantic.FUNCTION_NOT_FOUND, "Metodo '" + method + "' no existe en la clase '" + className + "'.");
+                    return DataType.ERROR;
+                }
+                int argCount = (ctx.argumentList() != null && ctx.argumentList().expression() != null) ? ctx.argumentList().expression().size() : 0;
+                FunctionSymbol match = null;
+                for (Symbol mSym : ms) {
+                    if (mSym instanceof FunctionSymbol fs && fs.getParams() != null && fs.getParams().size() == argCount) {
+                        match = fs;
+                        break;
+                    }
+                }
+                if (match == null && !ms.isEmpty() && ms.get(0) instanceof FunctionSymbol fs) {
+                    match = fs;
+                }
+                if (match == null) {
+                    visitor.reportError(line, col, TypeErrorSemantic.ARGUMENT_COUNT_MISMATCH, "Sobrecarga no encontrada para '" + method + "' con " + argCount + " argumentos.");
+                    return DataType.ERROR;
+                }
+                if (ctx.argumentList() != null) visitor.visit(ctx.argumentList());
+                return match.returnType != null ? match.returnType : (match.type != null ? match.type : DataType.VOID);
+            }
+
+            if (ctx.DOT() != null) {
+                String field = ctx.ID().getText();
+                String targetName = ctx.postfixExpression().getText();
+                Symbol s = visitor.getSymbolTable().lookup(targetName);
+                if (s != null) {
+                    return resolveFieldType(s, field, line, col);
+                }
+                return DataType.ERROR;
+            }
+
+            if (ctx.LBRACK() != null) {
+                DataType idx = visitor.visit(ctx.expression());
+                if (idx != DataType.NUMERUS && idx != DataType.ERROR) {
+                    visitor.reportError(line, col, TypeErrorSemantic.ARRAY_INDEX_ERROR, "Indice debe ser 'numerus'.");
+                }
+                return t;
+            }
+
+            if (ctx.INC() != null || ctx.DEC() != null) {
+                if (t != DataType.NUMERUS && t != DataType.DECIMALIS) {
+                    visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Incremento/Decremento solo en tipos numericos.");
+                }
+            }
+            return t;
+        }
+        return DataType.ERROR;
     }
 
     public DataType visitPrimaryExpression(PigLatinParser.PrimaryExpressionContext ctx) {

@@ -116,7 +116,14 @@ public class ExpressionSection {
 
     public DataType visitPostfixExpression(YParser.PostfixExpressionContext ctx) {
         if (ctx == null) return DataType.ERROR;
-        DataType t = visitor.visit(ctx.primaryExpression());
+        DataType t;
+        if (ctx.primaryExpression() != null) {
+            t = visitor.visit(ctx.primaryExpression());
+        } else if (ctx.postfixExpression() != null) {
+            t = visitor.visit(ctx.postfixExpression());
+        } else {
+            t = DataType.ERROR;
+        }
         if (ctx.INC() != null || ctx.DEC() != null) {
             if (!TypeChecker.isNumeric(t) && t != DataType.ERROR) {
                 visitor.reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.INCOMPATIBLE_TYPES, "Incremento/Decremento solo en tipos numericos");

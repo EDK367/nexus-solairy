@@ -34,9 +34,6 @@ public class IOSection {
         StringBuilder sb = new StringBuilder();
         for (PigLatinParser.ExpressionContext expr : ctx.expression()) {
             DataType t = visitor.visit(expr);
-            if (t == DataType.STRUCT || t == DataType.CLASS) {
-                visitor.reportError(expr.getStart().getLine(), expr.getStart().getCharPositionInLine(), TypeErrorSemantic.NOT_COMPATIBLE, "No se puede imprimir ni concatenar una estructura u objeto directamente.");
-            }
             Object val = expressionEval.evalExpression(expr);
             if (val != null) {
                 sb.append(expressionEval.toDisplayString(val));

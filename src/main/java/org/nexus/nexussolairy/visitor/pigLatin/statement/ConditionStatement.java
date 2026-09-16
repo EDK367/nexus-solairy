@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.model.enums.DataType;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.semantic.TypeChecker;
 import org.nexus.nexussolairy.visitor.VisitorContext;
 import org.nexus.nexussolairy.visitor.pigLatin.expression.ExpressionEval;
 
@@ -26,7 +27,7 @@ public class ConditionStatement {
         for (int i = 0; i < ctx.expression().size(); i++) {
             PigLatinParser.ExpressionContext condExpr = ctx.expression(i);
             DataType condType = visitor.visit(condExpr);
-            if (condType != DataType.BOOLEAN && condType != DataType.ERROR) {
+            if (!TypeChecker.isBool(condType) && condType != DataType.ERROR) {
                 visitor.reportError(condExpr.getStart().getLine(), condExpr.getStart().getCharPositionInLine(), TypeErrorSemantic.NOT_BOOLEAN, "Condicion del 'si' debe ser booleana.");
             }
         }

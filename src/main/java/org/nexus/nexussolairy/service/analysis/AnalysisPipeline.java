@@ -7,6 +7,12 @@ import org.nexus.nexussolairy.PigLatinParser;
 import org.nexus.nexussolairy.YParser;
 import org.nexus.nexussolairy.ZetarianoLexer;
 import org.nexus.nexussolairy.ZetarianoParser;
+import org.nexus.nexussolairy.backend.vm.C3DVirtualMachine;
+import org.nexus.nexussolairy.c3d.MemoryLayout;
+import org.nexus.nexussolairy.c3d.PigLatinC3DVisitor;
+import org.nexus.nexussolairy.c3d.YC3DVisitor;
+import org.nexus.nexussolairy.c3d.ZetarianoC3DVisitor;
+import org.nexus.nexussolairy.model.c3d.C3DProgram;
 import org.nexus.nexussolairy.model.enums.LanguageType;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.*;
@@ -140,8 +146,60 @@ public class AnalysisPipeline {
                 return result;
             }
         }
+
+        // generacion de codigo intermedio
+        C3DProgram c3dProg = new C3DProgram();
+        MemoryLayout memory = new MemoryLayout();
+
+        List<String> importPaths = extractImportPaths(source, language);
+        ImportResolver resolver = new ImportResolver();
+        java.util.Set<String> processedImports = new java.util.HashSet<>();
+        for (String importPath : importPaths) {
+            String filePath = resolver.resolveFilePath(importPath, baseDirectory);
+            if (filePath != null && processedImports.add(filePath)) {
+                try {
+                    String impSource = java.nio.file.Files.readString(java.nio.file.Path.of(filePath));
+                    LanguageType impLang = LanguageType.fromFileName(filePath);
+                    if (impLang == LanguageType.Y_LANG) {
+                        YIdentationLexer yLexer = new YIdentationLexer(CharStreams.fromString(impSource));
+                        YParser yParser = new YParser(new CommonTokenStream(yLexer));
+                        YC3DVisitor yC3d = new YC3DVisitor(c3dProg, memory, preloadedTable);
+                        yC3d.visit(yParser.program());
+                    } else if (impLang == LanguageType.ZETARIANO) {
+                        ZetarianoLexer zLexer = new ZetarianoLexer(CharStreams.fromString(impSource));
+                        ZetarianoParser zParser = new ZetarianoParser(new CommonTokenStream(zLexer));
+                        ZetarianoC3DVisitor zC3d = new ZetarianoC3DVisitor(c3dProg, memory, preloadedTable);
+                        zC3d.visit(zParser.program());
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        if (language == LanguageType.PIG_LATIN) {
+            PigLatinLexer plLexer = new PigLatinLexer(CharStreams.fromString(source));
+            PigLatinParser plParser = new PigLatinParser(new CommonTokenStream(plLexer));
+            PigLatinC3DVisitor c3dVisitor = new PigLatinC3DVisitor(c3dProg, memory, preloadedTable);
+            c3dVisitor.visit(plParser.program());
+        } else if (language == LanguageType.Y_LANG) {
+            YIdentationLexer yLexer = new YIdentationLexer(CharStreams.fromString(source));
+            YParser yParser = new YParser(new CommonTokenStream(yLexer));
+            YC3DVisitor c3dVisitor = new YC3DVisitor(c3dProg, memory, preloadedTable);
+            c3dVisitor.visit(yParser.program());
+        } else if (language == LanguageType.ZETARIANO) {
+            ZetarianoLexer zLexer = new ZetarianoLexer(CharStreams.fromString(source));
+            ZetarianoParser zParser = new ZetarianoParser(new CommonTokenStream(zLexer));
+            ZetarianoC3DVisitor c3dVisitor = new ZetarianoC3DVisitor(c3dProg, memory, preloadedTable);
+            c3dVisitor.visit(zParser.program());
+        }
+
+        result.setC3dProgram(c3dProg);
+
+        C3DVirtualMachine vm = new C3DVirtualMachine();
+        vm.loadProgram(c3dProg);
+        result.setVirtualMachine(vm);
+
         result.setValid(true);
-        result.setMessage("Análisis completado sin errores.");
+        result.setMessage("Análisis y generación C3D completados.");
         return result;
     }
 
@@ -218,6 +276,24 @@ public class AnalysisPipeline {
         private List<Symbol> symbols = Collections.emptyList();
         private List<SemanticError> semanticErrors = Collections.emptyList();
         private List<String> printOutput = Collections.emptyList();
+        private C3DProgram c3dProgram;
+        private C3DVirtualMachine virtualMachine;
+
+        public C3DProgram getC3dProgram() {
+            return c3dProgram;
+        }
+
+        public void setC3dProgram(C3DProgram c3dProgram) {
+            this.c3dProgram = c3dProgram;
+        }
+
+        public C3DVirtualMachine getVirtualMachine() {
+            return virtualMachine;
+        }
+
+        public void setVirtualMachine(C3DVirtualMachine virtualMachine) {
+            this.virtualMachine = virtualMachine;
+        }
 
         public boolean isValid() {
             return valid;

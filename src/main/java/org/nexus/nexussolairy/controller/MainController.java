@@ -4,6 +4,10 @@ import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import org.nexus.nexussolairy.backend.c.CSourceCodeGenerator;
+import org.nexus.nexussolairy.backend.c.GCCCompilerService;
+import org.nexus.nexussolairy.backend.vm.C3DVirtualMachine;
+import org.nexus.nexussolairy.model.c3d.Quadruple;
 import org.nexus.nexussolairy.ui.SintaxColor;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
@@ -207,6 +211,10 @@ public class MainController implements Initializable {
     private double astZoom = 1.0;
     private AstNodeViewModel selectedAstNode = null;
     private final AnalysisPipeline analysisPipeline = new AnalysisPipeline();
+
+    private C3DVirtualMachine activeVM;
+    private String currentGeneratedCCode = "";
+    private final GCCCompilerService gccService = new GCCCompilerService();
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -1159,6 +1167,26 @@ public class MainController implements Initializable {
         }
         symbolsList.setAll(symViewModels);
 
+        if (result.getC3dProgram() != null) {
+            List<QuadrupleViewModel> quadVMs = new ArrayList<>();
+            List<Quadruple> quads = result.getC3dProgram().getQuadruples();
+            for (int i = 0; i < quads.size(); i++) {
+                Quadruple q = quads.get(i);
+                quadVMs.add(new QuadrupleViewModel(i, q.getOp().name(), q.getArg1(), q.getArg2(), q.getResult()));
+            }
+            quadruplesList.setAll(quadVMs);
+
+            CSourceCodeGenerator cGen = new CSourceCodeGenerator();
+            currentGeneratedCCode = cGen.generateC(result.getC3dProgram());
+            c3dCodeArea.replaceText(currentGeneratedCCode);
+
+            activeVM = result.getVirtualMachine();
+            if (activeVM != null) {
+                activeVM.setConsoleOutput(line -> appendTerminalLog("PRINT", line));
+                stackStepLabel.setText("Step 0 of " + activeVM.getQuadruples().size());
+            }
+        }
+
         if (result.isValid()) {
             appendTerminalSuccess("Execution completed successfully");
             session.setStatus(ExecutionSession.SessionStatus.FINISHED);
@@ -1266,22 +1294,33 @@ public class MainController implements Initializable {
 
     @FXML
     public void handleRegenerateC3D() {
-        workspaceService.notifyUser("C3D generation ready for compiler integration");
+        if (currentGeneratedCCode.isEmpty()) {
+            workspaceService.notifyUser("No hay código C3D/C generado para compilar.");
+            return;
+        }
+        bottomTabPane.getSelectionModel().select(terminalTab);
+        appendTerminalInfo("Compilando código C generado con GCC...");
+        gccService.compileAndRun(currentGeneratedCCode, logLine -> appendTerminalLog("GCC", logLine));
+        workspaceService.notifyUser("Compilacion y ejecución GCC completada.");
     }
 
     @FXML
     public void handlePrevStackStep() {
-        if (currentStackStepIndex > 0) {
-            currentStackStepIndex--;
-            updateStackStepView();
+        if (activeVM != null && activeVM.getPc() > 0) {
+            int targetPc = activeVM.getPc() - 1;
+            activeVM.reset();
+            while (activeVM.getPc() < targetPc && !activeVM.isHalted()) {
+                activeVM.step();
+            }
+            updateVMDebuggerUI();
         }
     }
 
     @FXML
     public void handleNextStackStep() {
-        if (!stackSteps.isEmpty() && currentStackStepIndex < stackSteps.size() - 1) {
-            currentStackStepIndex++;
-            updateStackStepView();
+        if (activeVM != null && !activeVM.isHalted()) {
+            activeVM.step();
+            updateVMDebuggerUI();
         }
     }
 
@@ -1290,19 +1329,46 @@ public class MainController implements Initializable {
         if (stackAutoPlayTimeline != null && stackAutoPlayTimeline.getStatus() == Timeline.Status.RUNNING) {
             stackAutoPlayTimeline.stop();
             stackAutoPlayBtn.setText("▶ Auto Play");
-        } else if (!stackSteps.isEmpty()) {
+        } else if (activeVM != null && !activeVM.isHalted()) {
             stackAutoPlayBtn.setText("⏸ Pause");
-            stackAutoPlayTimeline = new Timeline(new KeyFrame(Duration.millis(1200), e -> {
-                if (!stackSteps.isEmpty() && currentStackStepIndex < stackSteps.size() - 1) {
+            stackAutoPlayTimeline = new Timeline(new KeyFrame(Duration.millis(500), e -> {
+                if (activeVM != null && !activeVM.isHalted()) {
                     handleNextStackStep();
                 } else {
-                    currentStackStepIndex = 0;
-                    updateStackStepView();
+                    if (stackAutoPlayTimeline != null) stackAutoPlayTimeline.stop();
+                    stackAutoPlayBtn.setText("▶ Auto Play");
                 }
             }));
             stackAutoPlayTimeline.setCycleCount(Timeline.INDEFINITE);
             stackAutoPlayTimeline.play();
         }
+    }
+
+    private void updateVMDebuggerUI() {
+        if (activeVM == null) return;
+        int pc = activeVM.getPc();
+        int total = activeVM.getQuadruples().size();
+        stackStepLabel.setText("Step " + pc + " of " + total);
+
+        if (pc >= 0 && pc < quadruplesList.size()) {
+            quadruplesTable.getSelectionModel().select(pc);
+            quadruplesTable.scrollTo(pc);
+        }
+
+        List<HeapViewModel> heapVMs = new ArrayList<>();
+        double[] heap = activeVM.getHeap();
+        int hLimit = (int) Math.min(activeVM.getH() + 10, heap.length);
+        for (int i = 0; i < hLimit; i++) {
+            if (heap[i] != 0) {
+                heapVMs.add(new HeapViewModel(
+                        "heap[" + i + "]",
+                        "double",
+                        String.valueOf(heap[i]),
+                        "Celda de memoria Heap"
+                ));
+            }
+        }
+        heapList.setAll(heapVMs);
     }
 
     @FXML

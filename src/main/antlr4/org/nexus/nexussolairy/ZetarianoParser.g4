@@ -88,7 +88,11 @@ leftValue : ID
           | ID LBRACK expression RBRACK
           | ID DOT ID
           | ID DOT ID LBRACK expression RBRACK
+          | chainedAccess
           ;
+
+chainedAccess : ID ( (DOT ID) | (LBRACK expression RBRACK) )+
+              ;
 
 // statement if
 ifStmt : IF LPAREN expression RPAREN ifBody

@@ -201,7 +201,34 @@ public class ExpressionEval {
 
     public Object evalPostfixExpression(PigLatinParser.PostfixExpressionContext ctx) {
         if (ctx == null) return null;
-        Object value = evalPrimaryExpression(ctx.primaryExpression());
+        Object value;
+        if (ctx.primaryExpression() != null) {
+            value = evalPrimaryExpression(ctx.primaryExpression());
+        } else if (ctx.postfixExpression() != null) {
+            if (ctx.DOT() != null && ctx.LPAREN() != null) {
+                String targetName = ctx.postfixExpression().getText();
+                String methodName = ctx.ID().getText();
+                List<Object> args = new ArrayList<>();
+                if (ctx.argumentList() != null && ctx.argumentList().expression() != null) {
+                    for (PigLatinParser.ExpressionContext expr : ctx.argumentList().expression()) {
+                        args.add(evalExpression(expr));
+                    }
+                }
+                return visitor.executeMethodCall(targetName, methodName, args);
+            }
+            if (ctx.DOT() != null) {
+                String targetName = ctx.postfixExpression().getText();
+                String fieldName = ctx.ID().getText();
+                Symbol symbol = visitor.getSymbolTable().lookup(targetName);
+                if (symbol != null && symbol.value instanceof Map<?, ?> fields) {
+                    return fields.get(fieldName);
+                }
+                return null;
+            }
+            value = evalPostfixExpression(ctx.postfixExpression());
+        } else {
+            value = null;
+        }
         if (ctx.INC() != null) {
             Object result = null;
             if (value instanceof Long l) result = l + 1;
@@ -209,7 +236,7 @@ public class ExpressionEval {
             else if (value instanceof Double d) result = d + 1;
             else if (value == null) result = 1L;
             if (result != null) {
-                saveIfVariable(ctx.primaryExpression(), result);
+                saveIfVariable(ctx, result);
                 return result;
             }
         }
@@ -220,7 +247,7 @@ public class ExpressionEval {
             else if (value instanceof Double d) result = d - 1;
             else if (value == null) result = -1L;
             if (result != null) {
-                saveIfVariable(ctx.primaryExpression(), result);
+                saveIfVariable(ctx, result);
                 return result;
             }
         }
@@ -373,8 +400,17 @@ public class ExpressionEval {
         return value.toString();
     }
 
+    private void saveIfVariable(PigLatinParser.PostfixExpressionContext postfix, Object newValue) {
+        if (postfix == null) return;
+        if (postfix.primaryExpression() != null) {
+            saveIfVariable(postfix.primaryExpression(), newValue);
+        } else if (postfix.postfixExpression() != null) {
+            saveIfVariable(postfix.postfixExpression(), newValue);
+        }
+    }
+
     private void saveIfVariable(PigLatinParser.PrimaryExpressionContext primary, Object newValue) {
-        if (primary != null && primary.ID().size() == 1 && primary.getChildCount() == 1) {
+        if (primary != null && primary.ID() != null && !primary.ID().isEmpty()) {
             String name = primary.ID(0).getText();
             visitor.getSymbolTable().updateValue(name, newValue);
         }

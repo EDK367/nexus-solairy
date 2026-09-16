@@ -4,8 +4,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.nexus.nexussolairy.ZetarianoParser;
 import org.nexus.nexussolairy.ZetarianoParserBaseVisitor;
-import org.nexus.nexussolairy.model.enums.DataType;
-import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
+import org.nexus.nexussolairy.model.enums.*;
 import org.nexus.nexussolairy.model.semantic.*;
 import org.nexus.nexussolairy.visitor.InputProvider;
 import org.nexus.nexussolairy.visitor.VisitorContext;
@@ -171,6 +170,9 @@ public class ZetarianoVisitorImpl extends ZetarianoParserBaseVisitor<DataType> i
         Symbol s = symbolTable.getCurrentScope().lookup(name);
         if (s != null) return s;
         if (currentClass != null) {
+            if ("this".equals(name)) {
+                return new Symbol("this", DataType.CLASS, SymbolKind.VARIABLE, ScopeKind.LOCAL, LanguageType.ZETARIANO, null, 0, 0, currentClass.getName());
+            }
             Symbol field = currentClass.resolveField(name);
             if (field != null) return field;
             List<Symbol> methods = currentClass.resolveMethod(name);

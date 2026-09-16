@@ -248,6 +248,9 @@ public class TypeChecker {
         if (isBool(target) && isBool(source)) return true;
 
         if (target == DataType.STRUCT && source == DataType.STRUCT) return true;
+        if (target == DataType.CLASS && source == DataType.CLASS) return true;
+        if (target == DataType.STRUCT && source == DataType.CLASS) return true;
+        if (target == DataType.CLASS && source == DataType.STRUCT) return true;
 
         return false;
     }
@@ -260,7 +263,7 @@ public class TypeChecker {
         String tn = target.getName();
         String sn = source.getName();
 
-        if (sn.equals("null") && (target.getDataType() == DataType.STRUCT || isString(target))) return true;
+        if (sn.equals("null") && (target.getDataType() == DataType.STRUCT || target.getDataType() == DataType.CLASS || isString(target))) return true;
 
         // Coerción numérica ascendente
         if ((tn.equals("flotante") || tn.equals("decimalis") || tn.equals("double"))
@@ -272,6 +275,9 @@ public class TypeChecker {
         if (isFloat(target) && isFloat(source)) return true;
         if (isString(target) && isString(source)) return true;
         if (isBool(target) && isBool(source)) return true;
+
+        if ((target.getDataType() == DataType.STRUCT || target.getDataType() == DataType.CLASS)
+                && (source.getDataType() == DataType.STRUCT || source.getDataType() == DataType.CLASS)) return true;
 
         return false;
     }

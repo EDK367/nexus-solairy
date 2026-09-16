@@ -31,7 +31,7 @@ public class LoopStatement {
         if (ctx == null) return DataType.VOID;
 
         DataType condType = visitor.visit(ctx.expression());
-        if (condType != DataType.BOOLEAN && condType != DataType.ERROR) {
+        if (!TypeChecker.isBool(condType) && condType != DataType.ERROR) {
             visitor.reportError(ctx.expression().getStart().getLine(), ctx.expression().getStart().getCharPositionInLine(), TypeErrorSemantic.NOT_BOOLEAN, "Condicion del 'dum' debe ser booleana.");
             return DataType.VOID;
         }
@@ -116,7 +116,7 @@ public class LoopStatement {
 
             if (iterations == 1) {
                 DataType condType = visitor.visit(ctx.expression());
-                if (condType != DataType.BOOLEAN && condType != DataType.ERROR) {
+                if (!TypeChecker.isBool(condType) && condType != DataType.ERROR) {
                     visitor.reportError(ctx.expression().getStart().getLine(), ctx.expression().getStart().getCharPositionInLine(), TypeErrorSemantic.NOT_BOOLEAN, "Condicion del 'dum' debe ser booleana.");
                     break;
                 }
@@ -146,7 +146,7 @@ public class LoopStatement {
 
         if (ctx.expression() != null) {
             DataType condType = visitor.visit(ctx.expression());
-            if (condType != DataType.BOOLEAN && condType != DataType.ERROR) {
+            if (!TypeChecker.isBool(condType) && condType != DataType.ERROR) {
                 visitor.reportError(ctx.expression().getStart().getLine(), ctx.expression().getStart().getCharPositionInLine(), TypeErrorSemantic.NOT_BOOLEAN, "Condicion del 'per' debe ser booleana.");
                 visitor.getSymbolTable().popScope();
                 return DataType.VOID;

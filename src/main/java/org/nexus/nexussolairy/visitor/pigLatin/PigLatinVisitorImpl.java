@@ -189,7 +189,7 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
                 }
             }
 
-            YVisitorImpl funcVisitor = new YVisitorImpl(funcSymbolTable, this.inputProvider, this.livePrinter);
+            YVisitorImpl funcVisitor = new YVisitorImpl(funcSymbolTable, this.inputProvider, null);
             funcVisitor.setCurrentFunction(funcSym);
             funcVisitor.setCurrentFunctionReturnType(funcSym.returnType != null ? funcSym.returnType : funcSym.type);
             funcVisitor.setInsideFunction(true);
@@ -197,7 +197,12 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
 
             funcVisitor.visitBlock(blk);
 
-            this.printOutput.addAll(funcVisitor.getPrintOutput());
+            for (String outLine : funcVisitor.getPrintOutput()) {
+                this.printOutput.add(outLine);
+                if (this.livePrinter != null) {
+                    this.livePrinter.accept(outLine);
+                }
+            }
 
             return funcVisitor.getReturnValue();
         }
@@ -251,6 +256,7 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
         }
 
         Scope instanceScope = new Scope("instance_" + varName, methodSymbolTable.getGlobalScope());
+        instanceScope.declare(new Symbol("this", DataType.CLASS, SymbolKind.VARIABLE, ScopeKind.LOCAL, LanguageType.ZETARIANO, objInstance, 0, 0, cls.getName()));
         for (Symbol f : cls.getFields().values()) {
             Object fVal = objInstance.containsKey(f.getName()) ? objInstance.get(f.getName()) : f.getValue();
             Symbol fSym = new Symbol(f.getName(), f.getType(), SymbolKind.VARIABLE, ScopeKind.LOCAL, LanguageType.ZETARIANO, fVal, f.line, f.column);
@@ -266,7 +272,7 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
             methodSymbolTable.getCurrentScope().declare(pSym);
         }
 
-        ZetarianoVisitorImpl methodVisitor = new ZetarianoVisitorImpl(methodSymbolTable, this.inputProvider, this.livePrinter);
+        ZetarianoVisitorImpl methodVisitor = new ZetarianoVisitorImpl(methodSymbolTable, this.inputProvider, null);
         methodVisitor.setCurrentClass(cls);
         methodVisitor.setCurrentMethod(targetMethod);
         methodVisitor.setCurrentFunctionReturnType(targetMethod.getType());
@@ -278,7 +284,12 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
             objInstance.put(f.getName(), f.getValue());
         }
 
-        this.printOutput.addAll(methodVisitor.getPrintOutput());
+        for (String outLine : methodVisitor.getPrintOutput()) {
+            this.printOutput.add(outLine);
+            if (this.livePrinter != null) {
+                this.livePrinter.accept(outLine);
+            }
+        }
 
         return methodVisitor.getReturnValue();
     }

@@ -158,7 +158,9 @@ public class ExpressionEval {
 
     public Object evalPostfixExpression(YParser.PostfixExpressionContext ctx) {
         if (ctx == null) return null;
-        return evalPrimaryExpression(ctx.primaryExpression());
+        if (ctx.primaryExpression() != null) return evalPrimaryExpression(ctx.primaryExpression());
+        if (ctx.postfixExpression() != null) return evalPostfixExpression(ctx.postfixExpression());
+        return null;
     }
 
     @SuppressWarnings("unchecked")

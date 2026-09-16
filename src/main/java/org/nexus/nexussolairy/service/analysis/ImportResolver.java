@@ -116,7 +116,7 @@ public class ImportResolver {
         }
     }
 
-    private String resolveFilePath(String importPath, String baseDirectory) {
+    public String resolveFilePath(String importPath, String baseDirectory) {
 
         if (importPath == null || importPath.isBlank()) return null;
 

@@ -114,6 +114,7 @@ printStmt : PRINT expression (PRINT expression)* SEMI
 // lectura
 readStmt : READ
          | ID READ
+         | postfixExpression READ
          ;
 
 breakStmt : INTERRUMPE SEMI
@@ -149,7 +150,11 @@ unaryExpression : NOT unaryExpression
                 | postfixExpression
                 ;
 
-postfixExpression : primaryExpression (INC | DEC)?
+postfixExpression : primaryExpression
+                  | postfixExpression DOT ID
+                  | postfixExpression DOT ID LPAREN argumentList? RPAREN
+                  | postfixExpression LBRACK expression RBRACK
+                  | postfixExpression (INC | DEC)
                   ;
 
 primaryExpression : literal
@@ -159,6 +164,7 @@ primaryExpression : literal
                   | ID DOT ID LBRACK expression RBRACK
                   | ID LPAREN argumentList? RPAREN
                   | ID DOT ID LPAREN argumentList? RPAREN
+                  | NOVUS ID LPAREN argumentList? RPAREN
                   | LPAREN expression RPAREN
                   | structLiteral
                   ;
