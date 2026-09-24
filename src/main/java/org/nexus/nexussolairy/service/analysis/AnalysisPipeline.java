@@ -150,6 +150,12 @@ public class AnalysisPipeline {
         // generacion de codigo intermedio
         C3DProgram c3dProg = new C3DProgram();
         MemoryLayout memory = new MemoryLayout();
+        for (ClassSymbol cls : preloadedTable.getClassRegistry().values()) {
+            memory.registerClass(cls);
+        }
+        for (StructInfo si : preloadedTable.getStructRegistry().values()) {
+            memory.registerStruct(si);
+        }
 
         List<String> importPaths = extractImportPaths(source, language);
         ImportResolver resolver = new ImportResolver();
@@ -196,6 +202,12 @@ public class AnalysisPipeline {
 
         C3DVirtualMachine vm = new C3DVirtualMachine();
         vm.loadProgram(c3dProg);
+        if (inputProvider != null) {
+            vm.setInputProvider(inputProvider);
+        }
+        if (livePrinter != null) {
+            vm.setConsoleOutput(livePrinter);
+        }
         result.setVirtualMachine(vm);
 
         result.setValid(true);
@@ -216,10 +228,9 @@ public class AnalysisPipeline {
         if (importPaths.isEmpty()) return new SymbolTable();
         ImportResolver resolver = new ImportResolver();
         Scope globalScope = new GlobalScope();
-        List<StructInfo> allStructs = new ArrayList<>();
-        List<ClassSymbol> allClasses = new ArrayList<>();
+        SymbolTable table = new SymbolTable(globalScope);
         for (String importPath : importPaths) {
-            ImportResolver.ImportResult imported = resolver.resolveImport(importPath, baseDirectory);
+            ImportResolver.ImportResult imported = resolver.resolveImport(importPath, baseDirectory, table);
 
             if (imported.isEmpty()) {
                 importErrors.add(new SemanticError(1, 0, "IMPORT_ERROR",
@@ -233,15 +244,13 @@ public class AnalysisPipeline {
             for (Symbol sym : imported.symbols) {
                 globalScope.declare(sym);
             }
-            allStructs.addAll(imported.structs.values());
-            allClasses.addAll(imported.classes.values());
-        }
-        SymbolTable table = new SymbolTable(globalScope);
-        for (StructInfo si : allStructs) {
-            table.registerStruct(si);
-        }
-        for (ClassSymbol cls : allClasses) {
-            table.registerClass(cls);
+            for (StructInfo si : imported.structs.values()) {
+                table.registerStruct(si);
+            }
+            for (ClassSymbol cls : imported.classes.values()) {
+                table.registerClass(cls);
+                globalScope.declare(cls);
+            }
         }
         return table;
     }

@@ -19,26 +19,66 @@ public class LoopStatement {
         this.expressionEval = expressionEval;
     }
 
+    public static final int MAX_ITERATIONS = 100_000;
+
     public DataType visitForStmt(ZetarianoParser.ForStmtContext ctx) {
         if (ctx == null) return DataType.VOID;
         visitor.pushScope("for");
         boolean prevLoop = visitor.isInsideLoop();
         visitor.setInsideLoop(true);
+
         if (ctx.forInit() != null) {
             visitForInit(ctx.forInit());
         }
+
         if (ctx.expression() != null) {
             Type c = visitor.getExpressionDelegate().visitExpression(ctx.expression());
             if (!TypeChecker.isBool(c) && c != Type.ERROR) {
                 visitor.reportError(ctx, TypeErrorSemantic.NOT_BOOLEAN, "Condicion del for debe ser booleana");
             }
         }
-        if (ctx.forUpdate() != null) {
-            visitForUpdate(ctx.forUpdate());
+
+        if (visitor.isInsideMain()) {
+            int iterations = 0;
+            while (true) {
+                if (ctx.expression() != null) {
+                    Object condVal = expressionEval.evalExpression(ctx.expression());
+                    if (!Boolean.TRUE.equals(condVal)) break;
+                }
+
+                if (++iterations > MAX_ITERATIONS) {
+                    visitor.reportError(ctx, TypeErrorSemantic.UNDEFINED_ERROR, "Bucle infinito detectado en for");
+                    break;
+                }
+
+                if (ctx.statement() != null) {
+                    visitor.visitStatement(ctx.statement());
+                }
+
+                if (visitor.isShouldBreak()) {
+                    visitor.setShouldBreak(false);
+                    break;
+                }
+                if (visitor.isShouldContinue()) {
+                    visitor.setShouldContinue(false);
+                }
+                if (visitor.isShouldReturn()) {
+                    break;
+                }
+
+                if (ctx.forUpdate() != null) {
+                    visitForUpdate(ctx.forUpdate());
+                }
+            }
+        } else {
+            if (ctx.forUpdate() != null) {
+                visitForUpdate(ctx.forUpdate());
+            }
+            if (ctx.statement() != null) {
+                visitor.visitStatement(ctx.statement());
+            }
         }
-        if (ctx.statement() != null) {
-            visitor.visitStatement(ctx.statement());
-        }
+
         visitor.setInsideLoop(prevLoop);
         visitor.popScope();
         return DataType.VOID;
@@ -134,15 +174,50 @@ public class LoopStatement {
         if (ctx == null) return DataType.VOID;
         boolean prevLoop = visitor.isInsideLoop();
         visitor.setInsideLoop(true);
+
         if (ctx.expression() != null) {
             Type c = visitor.getExpressionDelegate().visitExpression(ctx.expression());
             if (!TypeChecker.isBool(c) && c != Type.ERROR) {
                 visitor.reportError(ctx, TypeErrorSemantic.NOT_BOOLEAN, "Condicion del while debe ser booleana");
             }
         }
-        if (ctx.block() != null) {
-            visitor.visitBlock(ctx.block());
+
+        if (visitor.isInsideMain()) {
+            int iterations = 0;
+            while (true) {
+                Object condVal = expressionEval.evalExpression(ctx.expression());
+                if (!Boolean.TRUE.equals(condVal)) break;
+
+                if (++iterations > MAX_ITERATIONS) {
+                    visitor.reportError(ctx, TypeErrorSemantic.UNDEFINED_ERROR, "Bucle infinito detectado en while");
+                    break;
+                }
+
+                visitor.pushScope("while");
+                if (ctx.block() != null) {
+                    visitor.visitBlock(ctx.block());
+                }
+                visitor.popScope();
+
+                if (visitor.isShouldBreak()) {
+                    visitor.setShouldBreak(false);
+                    break;
+                }
+                if (visitor.isShouldContinue()) {
+                    visitor.setShouldContinue(false);
+                }
+                if (visitor.isShouldReturn()) {
+                    break;
+                }
+            }
+        } else {
+            visitor.pushScope("while");
+            if (ctx.block() != null) {
+                visitor.visitBlock(ctx.block());
+            }
+            visitor.popScope();
         }
+
         visitor.setInsideLoop(prevLoop);
         return DataType.VOID;
     }
@@ -151,15 +226,50 @@ public class LoopStatement {
         if (ctx == null) return DataType.VOID;
         boolean prevLoop = visitor.isInsideLoop();
         visitor.setInsideLoop(true);
-        if (ctx.block() != null) {
-            visitor.visitBlock(ctx.block());
-        }
+
         if (ctx.expression() != null) {
             Type c = visitor.getExpressionDelegate().visitExpression(ctx.expression());
             if (!TypeChecker.isBool(c) && c != Type.ERROR) {
                 visitor.reportError(ctx, TypeErrorSemantic.NOT_BOOLEAN, "Condicion del do-while debe ser booleana");
             }
         }
+
+        if (visitor.isInsideMain()) {
+            int iterations = 0;
+            while (true) {
+                if (++iterations > MAX_ITERATIONS) {
+                    visitor.reportError(ctx, TypeErrorSemantic.UNDEFINED_ERROR, "Bucle infinito detectado en do-while");
+                    break;
+                }
+
+                visitor.pushScope("dowhile");
+                if (ctx.block() != null) {
+                    visitor.visitBlock(ctx.block());
+                }
+                visitor.popScope();
+
+                if (visitor.isShouldBreak()) {
+                    visitor.setShouldBreak(false);
+                    break;
+                }
+                if (visitor.isShouldContinue()) {
+                    visitor.setShouldContinue(false);
+                }
+                if (visitor.isShouldReturn()) {
+                    break;
+                }
+
+                Object condVal = expressionEval.evalExpression(ctx.expression());
+                if (!Boolean.TRUE.equals(condVal)) break;
+            }
+        } else {
+            visitor.pushScope("dowhile");
+            if (ctx.block() != null) {
+                visitor.visitBlock(ctx.block());
+            }
+            visitor.popScope();
+        }
+
         visitor.setInsideLoop(prevLoop);
         return DataType.VOID;
     }

@@ -17,6 +17,7 @@ public class YIdentationLexer extends YLexer {
     private boolean atStartOfLine = true;
     // control para los () [] {}
     private int openedBrackets = 0;
+    private int lastTokenType = Token.INVALID_TYPE;
 
     public YIdentationLexer(CharStream input) {
         super(input);
@@ -26,7 +27,14 @@ public class YIdentationLexer extends YLexer {
 
     @Override
     public Token nextToken() {
+        Token token = doNextToken();
+        if (token != null) {
+            lastTokenType = token.getType();
+        }
+        return token;
+    }
 
+    private Token doNextToken() {
         if (!tokenQueue.isEmpty()) {
             return tokenQueue.poll();
         }
@@ -89,6 +97,9 @@ public class YIdentationLexer extends YLexer {
 
         // al llegar al final se vacia la pila y se va con los DEDENT
         if (token.getType() == Token.EOF) {
+            if (lastTokenType != Token.INVALID_TYPE && lastTokenType != NEWLINE) {
+                tokenQueue.offer(createSyntheticToken(NEWLINE));
+            }
             while (indentStack.peek() > 0) {
                 indentStack.pop();
                 tokenQueue.offer(createSyntheticToken(DEDENT));
@@ -134,7 +145,13 @@ public class YIdentationLexer extends YLexer {
     }
 
     private CommonToken createSyntheticToken(int type) {
-        CommonToken synthetic = new CommonToken(type, type == INDENT ? "<INDENT>" : "<DEDENT>");
+        String text = switch (type) {
+            case INDENT -> "<INDENT>";
+            case DEDENT -> "<DEDENT>";
+            case NEWLINE -> "\n";
+            default -> "";
+        };
+        CommonToken synthetic = new CommonToken(type, text);
         synthetic.setLine(getLine());
         synthetic.setCharPositionInLine(getCharPositionInLine());
         synthetic.setChannel(Token.DEFAULT_CHANNEL);

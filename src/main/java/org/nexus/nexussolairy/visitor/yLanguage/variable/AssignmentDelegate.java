@@ -53,6 +53,13 @@ public class AssignmentDelegate {
             return DataType.VOID;
         }
 
+        boolean isCompound = ctx.ADD_ASSIGN() != null || ctx.SUB_ASSIGN() != null || ctx.MUL_ASSIGN() != null || ctx.DIV_ASSIGN() != null;
+        if (isCompound) {
+            if (!TypeChecker.isNumeric(targetType) && targetType != DataType.ERROR) {
+                visitor.reportError(line, col, TypeErrorSemantic.INCOMPATIBLE_TYPES, "Asignacion compuesta solo en tipos numericos");
+            }
+        }
+
         DataType exprType;
         if (targetType == DataType.STRUCT) {
             String targetStruct = resolveTargetStructName(ctx.target());
@@ -66,6 +73,24 @@ public class AssignmentDelegate {
         }
 
         Object val = expressionEval.evalExpression(ctx.expression());
+        if (isCompound && ctx.target() != null && ctx.target().ID().size() == 1 && ctx.target().DOT().isEmpty() && ctx.target().LBRACK().isEmpty()) {
+            String id = ctx.target().ID(0).getText();
+            Symbol s = visitor.getSymbolTable().lookup(id);
+            if (s != null && s.value instanceof Number curNum && val instanceof Number valNum) {
+                boolean isDec = s.type == DataType.FLOTANTE || s.type == DataType.DECIMALIS || curNum instanceof Double || curNum instanceof Float || valNum instanceof Double || valNum instanceof Float;
+                if (ctx.ADD_ASSIGN() != null) {
+                    val = isDec ? (curNum.doubleValue() + valNum.doubleValue()) : (curNum.longValue() + valNum.longValue());
+                } else if (ctx.SUB_ASSIGN() != null) {
+                    val = isDec ? (curNum.doubleValue() - valNum.doubleValue()) : (curNum.longValue() - valNum.longValue());
+                } else if (ctx.MUL_ASSIGN() != null) {
+                    val = isDec ? (curNum.doubleValue() * valNum.doubleValue()) : (curNum.longValue() * valNum.longValue());
+                } else if (ctx.DIV_ASSIGN() != null) {
+                    if (valNum.doubleValue() != 0) {
+                        val = isDec ? (curNum.doubleValue() / valNum.doubleValue()) : (curNum.longValue() / valNum.longValue());
+                    }
+                }
+            }
+        }
 
         if (ctx.target() != null && ctx.target().DOT().isEmpty() && ctx.target().LBRACK().isEmpty()) {
             String id = ctx.target().ID(0).getText();

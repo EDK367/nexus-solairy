@@ -68,11 +68,18 @@ GT     : '>' ;
 INC   : '++' ;
 DEC   : '--' ;
 
+// manejo de valor con asignacion
+ADD_ASSIGN  : '+='  ;
+SUB_ASSIGN  : '-='  ;
+MUL_ASSIGN  : '*='  ;
+DIV_ASSIGN  : '/='  ;
+
 // operadores aritmeticos
 PLUS   : '+' ;
 MINUS  : '-' ;
 MULT   : '*' ;
 DIV    : '/' ;
+MOD    : '%' ;
 
 // asignacion
 ASSIGN : '=' ;

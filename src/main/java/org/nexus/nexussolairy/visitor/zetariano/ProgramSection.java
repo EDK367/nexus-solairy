@@ -68,6 +68,7 @@ public class ProgramSection {
     }
 
     private void registerField(ClassSymbol cls, ZetarianoParser.FieldDeclContext ctx) {
+        if (ctx == null || ctx.ID() == null) return;
         Type t = visitor.getVariableDelegate().getType(ctx.type());
         String name = ctx.ID().getText();
         if (cls.hasField(name)) {
@@ -140,6 +141,8 @@ public class ProgramSection {
 
         visitor.pushScope(name);
         if (cls != null) {
+            VariableSymbol thisSym = new VariableSymbol("this", new Type(cls.getName()), null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+            visitor.getSymbolTable().getCurrentScope().define(thisSym);
             for (Symbol fieldSym : cls.getFields().values()) {
                 VariableSymbol copy = new VariableSymbol(fieldSym.getName(), fieldSym.getSemanticType(), fieldSym.value, fieldSym.getLine(), fieldSym.getColumn());
                 if (fieldSym instanceof VariableSymbol vs && vs.isArray()) {
@@ -207,11 +210,21 @@ public class ProgramSection {
                 visitor.getSymbolTable().getCurrentScope().define(vs);
             }
         }
+        boolean prevShouldReturn = visitor.isShouldReturn();
+        boolean prevShouldBreak = visitor.isShouldBreak();
+        boolean prevShouldContinue = visitor.isShouldContinue();
+        visitor.setShouldReturn(false);
+        visitor.setShouldBreak(false);
+        visitor.setShouldContinue(false);
+
         if (ctx.block() != null) {
             visitor.visitBlock(ctx.block());
         }
         visitor.popScope();
         visitor.setCurrentMethod(null);
+        visitor.setShouldReturn(prevShouldReturn);
+        visitor.setShouldBreak(prevShouldBreak);
+        visitor.setShouldContinue(prevShouldContinue);
         return DataType.VOID;
     }
 
@@ -221,10 +234,16 @@ public class ProgramSection {
         String name = ctx.ID().getText();
         boolean prevInsideFunction = visitor.isInsideFunction();
         boolean prevInsideMain = visitor.isInsideMain();
+        boolean prevShouldReturn = visitor.isShouldReturn();
+        boolean prevShouldBreak = visitor.isShouldBreak();
+        boolean prevShouldContinue = visitor.isShouldContinue();
         visitor.setInsideFunction(true);
         if ("main".equalsIgnoreCase(name) || "principal".equalsIgnoreCase(name)) {
             visitor.setInsideMain(true);
         }
+        visitor.setShouldReturn(false);
+        visitor.setShouldBreak(false);
+        visitor.setShouldContinue(false);
 
         visitor.pushScope(name);
         if (ctx.paramList() != null) {
@@ -240,6 +259,9 @@ public class ProgramSection {
         visitor.setCurrentMethod(null);
         visitor.setInsideFunction(prevInsideFunction);
         visitor.setInsideMain(prevInsideMain);
+        visitor.setShouldReturn(prevShouldReturn);
+        visitor.setShouldBreak(prevShouldBreak);
+        visitor.setShouldContinue(prevShouldContinue);
         return DataType.VOID;
     }
 

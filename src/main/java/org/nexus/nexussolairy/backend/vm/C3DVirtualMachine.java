@@ -19,18 +19,24 @@ public class C3DVirtualMachine {
     private final Map<String, Double> temporals = new HashMap<>();
     private final Map<String, Integer> labelMap = new HashMap<>();
     private final Deque<Integer> returnStack = new ArrayDeque<>();
+    private final Set<Integer> knownStringPtrs = new HashSet<>();
 
     private List<Quadruple> quadruples = Collections.emptyList();
     private int pc = 0;
     private boolean halted = true;
 
     private Consumer<String> consoleOutput;
+    private org.nexus.nexussolairy.visitor.InputProvider inputProvider;
 
     public C3DVirtualMachine() {
     }
 
     public void setConsoleOutput(Consumer<String> consoleOutput) {
         this.consoleOutput = consoleOutput;
+    }
+
+    public void setInputProvider(org.nexus.nexussolairy.visitor.InputProvider inputProvider) {
+        this.inputProvider = inputProvider;
     }
 
     public void loadProgram(C3DProgram program) {
@@ -50,6 +56,22 @@ public class C3DVirtualMachine {
                 pc = labelMap.get("principal");
             } else if (labelMap.containsKey("main")) {
                 pc = labelMap.get("main");
+            } else {
+                for (Map.Entry<String, Integer> entry : labelMap.entrySet()) {
+                    if (entry.getKey().equalsIgnoreCase("main") || entry.getKey().toLowerCase().endsWith("_main")) {
+                        pc = entry.getValue();
+                        break;
+                    }
+                }
+                if (pc == 0 && !labelMap.isEmpty()) {
+                    for (Map.Entry<String, Integer> entry : labelMap.entrySet()) {
+                        String lbl = entry.getKey();
+                        if (!lbl.matches("L\\d+")) {
+                            pc = entry.getValue();
+                            break;
+                        }
+                    }
+                }
             }
             this.halted = quadruples.isEmpty();
         }
@@ -63,6 +85,7 @@ public class C3DVirtualMachine {
         temporals.clear();
         labelMap.clear();
         returnStack.clear();
+        knownStringPtrs.clear();
         pc = 0;
         halted = true;
     }
@@ -135,7 +158,12 @@ public class C3DVirtualMachine {
             case IF_FALSE -> {
                 if (evalVal(arg1) == 0) jumpToLabel(res);
             }
-            case ASSIGN -> setVal(res, evalVal(arg1));
+            case ASSIGN -> {
+                if ("H".equals(arg1)) {
+                    knownStringPtrs.add((int) H);
+                }
+                setVal(res, evalVal(arg1));
+            }
             case ADD -> setVal(res, evalVal(arg1) + evalVal(arg2));
             case SUB -> setVal(res, evalVal(arg1) - evalVal(arg2));
             case MULT -> setVal(res, evalVal(arg1) * evalVal(arg2));
@@ -197,6 +225,65 @@ public class C3DVirtualMachine {
                 }
                 if (consoleOutput != null) consoleOutput.accept(sb.toString());
             }
+            case CONCAT_STR -> {
+                double val1 = evalVal(arg1);
+                double val2 = evalVal(arg2);
+                int start = (int) H;
+                knownStringPtrs.add(start);
+                String mode = q.getComment();
+                if ("str_num".equals(mode)) {
+                    appendStrToHeap(val1);
+                    appendNumToHeap(val2);
+                } else if ("num_str".equals(mode)) {
+                    appendNumToHeap(val1);
+                    appendStrToHeap(val2);
+                } else if ("str_str".equals(mode)) {
+                    appendStrToHeap(val1);
+                    appendStrToHeap(val2);
+                } else {
+                    appendValToHeap(val1);
+                    appendValToHeap(val2);
+                }
+                if ((int) H < heap.length) heap[(int) H++] = -1;
+                setVal(res, start);
+            }
+            case READ -> {
+                double val = 0;
+                if (inputProvider != null) {
+                    try {
+                        String s = inputProvider.readLine();
+                        if (s != null && !s.trim().isEmpty()) {
+                            val = Double.parseDouble(s.trim());
+                        }
+                    } catch (Exception ignored) {}
+                }
+                setVal(res, val);
+            }
+        }
+    }
+
+    private void appendStrToHeap(double ptr) {
+        int idx = (int) ptr;
+        int limit = (int) H;
+        while (idx >= 0 && idx < limit && idx < heap.length && heap[idx] != -1) {
+            if ((int) H < heap.length) heap[(int) H++] = heap[idx++];
+        }
+    }
+
+    private void appendNumToHeap(double val) {
+        String s = (val == (long) val) ? String.valueOf((long) val) : String.valueOf(val);
+        for (char c : s.toCharArray()) {
+            if ((int) H < heap.length) heap[(int) H++] = c;
+        }
+    }
+
+    private void appendValToHeap(double val) {
+        int idx = (int) val;
+        boolean isStr = knownStringPtrs.contains(idx) && (idx >= 0 && idx < H);
+        if (isStr) {
+            appendStrToHeap(val);
+        } else {
+            appendNumToHeap(val);
         }
     }
 

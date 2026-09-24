@@ -7,6 +7,7 @@ WS            : [ \t\r\n]+     -> channel(HIDDEN) ;
 
 // encabezados
 PUBLIC      : 'public'  ;
+PRIVATE     : 'private' ;
 CLASS       : 'class'   ;
 VOID        : 'void'    ;
 NEW         : 'new'     ;

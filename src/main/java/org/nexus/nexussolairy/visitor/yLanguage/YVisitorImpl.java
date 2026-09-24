@@ -4,6 +4,9 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.nexus.nexussolairy.YParser;
 import org.nexus.nexussolairy.YParserBaseVisitor;
 import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.LanguageType;
+import org.nexus.nexussolairy.model.enums.ScopeKind;
+import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.model.enums.TypeErrorSemantic;
 import org.nexus.nexussolairy.model.semantic.SemanticError;
 import org.nexus.nexussolairy.model.semantic.Symbol;
@@ -36,6 +39,7 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
     private boolean shouldBreak = false;
     private boolean shouldContinue = false;
     private boolean shouldReturn = false;
+    private boolean importContext = false;
     private Object returnValue = null;
     private InputProvider inputProvider;
     private Consumer<String> livePrinter;
@@ -183,7 +187,75 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
 
     @Override
     public Object executeFunctionCall(String name, List<Object> arguments) {
-        return null;
+        Symbol funcSym = symbolTable.lookup(name);
+        if (funcSym == null) return null;
+        Object ast = funcSym.getAstContext();
+        if (ast == null) return null;
+
+        YParser.ParameterListContext pl = null;
+        YParser.BlockContext blk = null;
+        if (ast instanceof YParser.VoidFunctionContext vfc) {
+            pl = vfc.parameterList();
+            blk = vfc.block();
+        } else if (ast instanceof YParser.ReturnFunctionContext rfc) {
+            pl = rfc.parameterList();
+            blk = rfc.block();
+        }
+        if (blk == null) return null;
+
+        Symbol prevFunc = currentFunction;
+        DataType prevRet = currentFunctionReturnType;
+        boolean prevInsideFunc = insideFunction;
+        boolean prevInsideMain = insideMain;
+        boolean prevShouldReturn = shouldReturn;
+        boolean prevShouldBreak = shouldBreak;
+        boolean prevShouldContinue = shouldContinue;
+        Object prevReturnVal = returnValue;
+
+        currentFunction = funcSym;
+        currentFunctionReturnType = funcSym.returnType != null ? funcSym.returnType : funcSym.type;
+        insideFunction = true;
+        insideMain = true;
+        shouldReturn = false;
+        shouldBreak = false;
+        shouldContinue = false;
+        returnValue = null;
+
+        symbolTable.pushScope(name);
+
+        if (pl != null && pl.parameter() != null) {
+            int argCount = (arguments != null) ? arguments.size() : 0;
+            for (int i = 0; i < pl.parameter().size(); i++) {
+                YParser.ParameterContext p = pl.parameter(i);
+                String paramName;
+                if (p.type() != null) {
+                    paramName = p.ID(0).getText();
+                } else {
+                    paramName = p.ID(1).getText();
+                }
+                DataType pt = (i < funcSym.paramTypes.size()) ? funcSym.paramTypes.get(i) : DataType.VOID;
+                Object pVal = (i < argCount) ? arguments.get(i) : null;
+                Symbol ps = new Symbol(paramName, pt, SymbolKind.PARAMETER, ScopeKind.LOCAL, LanguageType.Y_LANG, pVal, p.getStart().getLine(), p.getStart().getCharPositionInLine());
+                symbolTable.declare(ps);
+            }
+        }
+
+        visit(blk);
+
+        Object result = returnValue;
+
+        symbolTable.popScope();
+
+        currentFunction = prevFunc;
+        currentFunctionReturnType = prevRet;
+        insideFunction = prevInsideFunc;
+        insideMain = prevInsideMain;
+        shouldReturn = prevShouldReturn;
+        shouldBreak = prevShouldBreak;
+        shouldContinue = prevShouldContinue;
+        returnValue = prevReturnVal;
+
+        return result;
     }
 
     @Override
@@ -207,6 +279,14 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
     @Override
     public void setInsideMain(boolean value) {
         this.insideMain = value;
+    }
+
+    public boolean isImportContext() {
+        return importContext;
+    }
+
+    public void setImportContext(boolean importContext) {
+        this.importContext = importContext;
     }
 
     @Override
@@ -307,8 +387,43 @@ public class YVisitorImpl extends YParserBaseVisitor<DataType> implements Visito
         if (ctx.returnStmt() != null) return visit(ctx.returnStmt());
         if (ctx.breakStmt() != null) return visit(ctx.breakStmt());
         if (ctx.continueStmt() != null) return visit(ctx.continueStmt());
+        if (ctx.callStmt() != null) return visit(ctx.callStmt());
         if (ctx.structDef() != null) return visit(ctx.structDef());
         return DataType.VOID;
+    }
+
+    @Override
+    public DataType visitCallStmt(YParser.CallStmtContext ctx) {
+        if (ctx == null) return DataType.VOID;
+        if (ctx.target() == null) {
+            String name = ctx.ID().getText();
+            Symbol func = symbolTable.lookup(name);
+            if (func == null) {
+                reportError(ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine(), TypeErrorSemantic.FUNCTION_NOT_FOUND, "Funcion '" + name + "' no declarada");
+                return DataType.ERROR;
+            }
+            List<Object> args = new ArrayList<>();
+            if (ctx.argumentList() != null) {
+                for (YParser.ExpressionContext e : ctx.argumentList().expression()) {
+                    visit(e);
+                    if (isInsideMain()) {
+                        args.add(expressionEval.evalExpression(e));
+                    }
+                }
+            }
+            if (isInsideMain()) {
+                executeFunctionCall(name, args);
+            }
+            return func.returnType != null ? func.returnType : DataType.VOID;
+        } else {
+            visit(ctx.target());
+            if (ctx.argumentList() != null) {
+                for (YParser.ExpressionContext e : ctx.argumentList().expression()) {
+                    visit(e);
+                }
+            }
+            return DataType.VOID;
+        }
     }
 
     @Override

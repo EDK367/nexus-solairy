@@ -115,6 +115,7 @@ public class TypeChecker {
             case "-":
             case "*":
             case "/":
+            case "%":
                 if (isNumeric(left) && isNumeric(right)) {
                     return getWiderNumeric(left, right);
                 }
@@ -180,11 +181,12 @@ public class TypeChecker {
             case "!=":
                 if (left.equals(right)) return Type.BOOL;
                 if (isNumeric(left) && isNumeric(right)) return Type.BOOL;
-                if ((left.getName().equals("null") && (right.getDataType() == DataType.STRUCT || isString(right)))
-                        || (right.getName().equals("null") && (left.getDataType() == DataType.STRUCT || isString(left)))) {
+                if ((left.getName().equals("null") && (right.getDataType() == DataType.STRUCT || right.getDataType() == DataType.CLASS || isString(right)))
+                        || (right.getName().equals("null") && (left.getDataType() == DataType.STRUCT || left.getDataType() == DataType.CLASS || isString(left)))) {
                     return Type.BOOL;
                 }
-                if (left.getDataType() == DataType.STRUCT && right.getDataType() == DataType.STRUCT) {
+                if ((left.getDataType() == DataType.STRUCT || left.getDataType() == DataType.CLASS)
+                        && (right.getDataType() == DataType.STRUCT || right.getDataType() == DataType.CLASS)) {
                     return Type.BOOL;
                 }
                 return Type.ERROR;
@@ -263,7 +265,7 @@ public class TypeChecker {
         String tn = target.getName();
         String sn = source.getName();
 
-        if (sn.equals("null") && (target.getDataType() == DataType.STRUCT || target.getDataType() == DataType.CLASS || isString(target))) return true;
+        if (sn.equals("null") && (target.getDataType() == DataType.STRUCT || target.getDataType() == DataType.CLASS || isString(target) || isNumeric(target))) return true;
 
         // Coerción numérica ascendente
         if ((tn.equals("flotante") || tn.equals("decimalis") || tn.equals("double"))

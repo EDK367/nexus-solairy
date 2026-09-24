@@ -277,6 +277,7 @@ public class PigLatinVisitorImpl extends PigLatinParserBaseVisitor<DataType> imp
         methodVisitor.setCurrentMethod(targetMethod);
         methodVisitor.setCurrentFunctionReturnType(targetMethod.getType());
         methodVisitor.setInsideFunction(true);
+        methodVisitor.setInsideMain(true);
 
         methodVisitor.visitBlock(mCtx.block());
 

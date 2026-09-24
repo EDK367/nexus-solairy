@@ -4,6 +4,7 @@ import org.nexus.nexussolairy.YParser;
 import org.nexus.nexussolairy.YParserBaseVisitor;
 import org.nexus.nexussolairy.model.c3d.C3DProgram;
 import org.nexus.nexussolairy.model.c3d.OpCode;
+import org.nexus.nexussolairy.model.semantic.Symbol;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -99,10 +100,129 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
         return null;
     }
 
+    private String loadTarget(YParser.TargetContext target, int line) {
+        String varName = target.ID(0).getText();
+        String basePtr = program.newTemp();
+        if (memory.isGlobal(varName, currentRoutine)) {
+            int offset = memory.getGlobalOffset(varName);
+            program.emit(OpCode.STACK_READ, String.valueOf(offset), "", basePtr, line, "Leer global " + varName);
+        } else {
+            int offset = memory.getLocalOffset(currentRoutine, varName);
+            if (offset < 0) offset = memory.declareLocal(currentRoutine, varName);
+            String pAddr = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+            program.emit(OpCode.STACK_READ, pAddr, "", basePtr, line, "Leer local " + varName);
+        }
+
+        if (target.DOT().isEmpty() && target.LBRACK().isEmpty()) {
+            return basePtr;
+        }
+
+        if (target.DOT().isEmpty() && !target.LBRACK().isEmpty()) {
+            String idxTemp = visit(target.expression(0));
+            String elemAddr = program.newTemp();
+            program.emit(OpCode.ADD, basePtr, idxTemp, elemAddr, line);
+            String valTemp = program.newTemp();
+            program.emit(OpCode.HEAP_READ, elemAddr, "", valTemp, line);
+            return valTemp;
+        }
+
+        if (!target.DOT().isEmpty()) {
+            int fieldOffset = 0;
+            if (target.ID().size() >= 2 && symbolTable != null) {
+                String fieldName = target.ID(1).getText();
+                Symbol s = symbolTable.lookup(varName);
+                if (s != null && s.structTypeName != null) {
+                    var structInfo = symbolTable.lookupStruct(s.structTypeName);
+                    if (structInfo != null) {
+                        int idx = 0;
+                        for (String f : structInfo.getFields().keySet()) {
+                            if (f.equals(fieldName)) {
+                                fieldOffset = idx;
+                                break;
+                            }
+                            idx++;
+                        }
+                    }
+                }
+            }
+            String fieldAddr = program.newTemp();
+            program.emit(OpCode.ADD, basePtr, String.valueOf(fieldOffset), fieldAddr, line);
+            String valTemp = program.newTemp();
+            program.emit(OpCode.HEAP_READ, fieldAddr, "", valTemp, line);
+            return valTemp;
+        }
+
+        return basePtr;
+    }
+
+    private void storeTarget(YParser.TargetContext target, String valTemp, int line) {
+        String varName = target.ID(0).getText();
+
+        if (target.DOT().isEmpty() && target.LBRACK().isEmpty()) {
+            if (memory.isGlobal(varName, currentRoutine)) {
+                int offset = memory.getGlobalOffset(varName);
+                if (offset < 0) offset = memory.declareGlobal(varName);
+                program.emit(OpCode.STACK_WRITE, String.valueOf(offset), valTemp, "", line);
+            } else {
+                int offset = memory.getLocalOffset(currentRoutine, varName);
+                if (offset < 0) offset = memory.declareLocal(currentRoutine, varName);
+                String pAddr = program.newTemp();
+                program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+                program.emit(OpCode.STACK_WRITE, pAddr, valTemp, "", line);
+            }
+            return;
+        }
+
+        String basePtr = program.newTemp();
+        if (memory.isGlobal(varName, currentRoutine)) {
+            int offset = memory.getGlobalOffset(varName);
+            program.emit(OpCode.STACK_READ, String.valueOf(offset), "", basePtr, line);
+        } else {
+            int offset = memory.getLocalOffset(currentRoutine, varName);
+            if (offset < 0) offset = memory.declareLocal(currentRoutine, varName);
+            String pAddr = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+            program.emit(OpCode.STACK_READ, pAddr, "", basePtr, line);
+        }
+
+        if (target.DOT().isEmpty() && !target.LBRACK().isEmpty()) {
+            String idxTemp = visit(target.expression(0));
+            String elemAddr = program.newTemp();
+            program.emit(OpCode.ADD, basePtr, idxTemp, elemAddr, line);
+            program.emit(OpCode.HEAP_WRITE, elemAddr, valTemp, "", line);
+            return;
+        }
+
+        if (!target.DOT().isEmpty()) {
+            int fieldOffset = 0;
+            if (target.ID().size() >= 2 && symbolTable != null) {
+                String fieldName = target.ID(1).getText();
+                Symbol s = symbolTable.lookup(varName);
+                if (s != null && s.structTypeName != null) {
+                    var structInfo = symbolTable.lookupStruct(s.structTypeName);
+                    if (structInfo != null) {
+                        int idx = 0;
+                        for (String f : structInfo.getFields().keySet()) {
+                            if (f.equals(fieldName)) {
+                                fieldOffset = idx;
+                                break;
+                            }
+                            idx++;
+                        }
+                    }
+                }
+            }
+            String fieldAddr = program.newTemp();
+            program.emit(OpCode.ADD, basePtr, String.valueOf(fieldOffset), fieldAddr, line);
+            program.emit(OpCode.HEAP_WRITE, fieldAddr, valTemp, "", line);
+        }
+    }
+
     @Override
     public String visitVarDecl(YParser.VarDeclContext ctx) {
         int line = ctx.getStart().getLine();
-        String varName = ctx.ID(0).getText();
+        String varName = (ctx.type() != null) ? ctx.ID(0).getText() : ctx.ID(1).getText();
         if (ctx.type() != null && isStringType(ctx.type().getText())) {
             stringVars.add(varName);
         }
@@ -112,6 +232,28 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
         String valTemp = "0";
         if (ctx.expression() != null && !ctx.expression().isEmpty()) {
             valTemp = visit(ctx.expression(0));
+        } else if (ctx.arrayInit() != null && ctx.arrayInit().expressionList() != null) {
+            String heapRef = program.newTemp();
+            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "Array " + varName);
+            for (YParser.ExpressionContext e : ctx.arrayInit().expressionList().expression()) {
+                String elemVal = visit(e);
+                program.emit(OpCode.HEAP_WRITE, "H", elemVal, "", line);
+                String newH = program.newTemp();
+                program.emit(OpCode.ADD, "H", "1", newH, line);
+                program.emit(OpCode.ASSIGN, newH, "", "H", line);
+            }
+            valTemp = heapRef;
+        } else if (ctx.structLiteral() != null && ctx.structLiteral().expressionList() != null) {
+            String heapRef = program.newTemp();
+            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "Struct " + varName);
+            for (YParser.ExpressionContext e : ctx.structLiteral().expressionList().expression()) {
+                String fVal = visit(e);
+                program.emit(OpCode.HEAP_WRITE, "H", fVal, "", line);
+                String newH = program.newTemp();
+                program.emit(OpCode.ADD, "H", "1", newH, line);
+                program.emit(OpCode.ASSIGN, newH, "", "H", line);
+            }
+            valTemp = heapRef;
         }
 
         if (memory.isGlobal(varName, currentRoutine)) {
@@ -127,19 +269,95 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
     @Override
     public String visitAssignStmt(YParser.AssignStmtContext ctx) {
         int line = ctx.getStart().getLine();
-        String targetName = ctx.target().ID(0).getText();
-        String valTemp = ctx.expression() != null ? visit(ctx.expression()) : "0";
+        if (ctx.INC() != null || ctx.DEC() != null) {
+            String curVal = loadTarget(ctx.target(), line);
+            String nextVal = program.newTemp();
+            OpCode op = ctx.INC() != null ? OpCode.ADD : OpCode.SUB;
+            program.emit(op, curVal, "1", nextVal, line);
+            storeTarget(ctx.target(), nextVal, line);
+            return null;
+        }
 
-        if (memory.isGlobal(targetName, currentRoutine)) {
-            int offset = memory.getGlobalOffset(targetName);
-            if (offset < 0) offset = memory.declareGlobal(targetName);
-            program.emit(OpCode.STACK_WRITE, String.valueOf(offset), valTemp, "", line);
+        String valTemp = ctx.expression() != null ? visit(ctx.expression()) : "0";
+        if (ctx.ASSIGN() != null) {
+            storeTarget(ctx.target(), valTemp, line);
         } else {
-            int offset = memory.getLocalOffset(currentRoutine, targetName);
-            if (offset < 0) offset = memory.declareLocal(currentRoutine, targetName);
+            String curVal = loadTarget(ctx.target(), line);
+            String nextVal = program.newTemp();
+            OpCode op = ctx.ADD_ASSIGN() != null ? OpCode.ADD :
+                        ctx.SUB_ASSIGN() != null ? OpCode.SUB :
+                        ctx.MUL_ASSIGN() != null ? OpCode.MULT : OpCode.DIV;
+            program.emit(op, curVal, valTemp, nextVal, line);
+            storeTarget(ctx.target(), nextVal, line);
+        }
+        return null;
+    }
+
+    @Override
+    public String visitForInit(YParser.ForInitContext ctx) {
+        int line = ctx.getStart().getLine();
+        String valTemp = visit(ctx.expression());
+        if (ctx.type() != null) {
+            String varName = ctx.ID().getText();
+            int offset = memory.declareLocal(currentRoutine, varName);
             String pAddr = program.newTemp();
             program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
             program.emit(OpCode.STACK_WRITE, pAddr, valTemp, "", line);
+        } else if (ctx.target() != null) {
+            storeTarget(ctx.target(), valTemp, line);
+        }
+        return null;
+    }
+
+    @Override
+    public String visitForUpdate(YParser.ForUpdateContext ctx) {
+        int line = ctx.getStart().getLine();
+        if (ctx.INC() != null || ctx.DEC() != null) {
+            String curVal = loadTarget(ctx.target(), line);
+            String nextVal = program.newTemp();
+            OpCode op = ctx.INC() != null ? OpCode.ADD : OpCode.SUB;
+            program.emit(op, curVal, "1", nextVal, line);
+            storeTarget(ctx.target(), nextVal, line);
+            return null;
+        }
+        if (ctx.expression() != null) {
+            String valTemp = visit(ctx.expression());
+            if (ctx.ASSIGN() != null) {
+                storeTarget(ctx.target(), valTemp, line);
+            } else {
+                String curVal = loadTarget(ctx.target(), line);
+                String nextVal = program.newTemp();
+                OpCode op = ctx.ADD_ASSIGN() != null ? OpCode.ADD :
+                            ctx.SUB_ASSIGN() != null ? OpCode.SUB :
+                            ctx.MUL_ASSIGN() != null ? OpCode.MULT : OpCode.DIV;
+                program.emit(op, curVal, valTemp, nextVal, line);
+                storeTarget(ctx.target(), nextVal, line);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public String visitCallStmt(YParser.CallStmtContext ctx) {
+        int line = ctx.getStart().getLine();
+        if (ctx.target() == null) {
+            String funcName = ctx.ID().getText();
+            int frameSize = memory.getCallFrameOffset(currentRoutine);
+            String tNew = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(frameSize), tNew, line, "Calcular nuevo marco");
+
+            if (ctx.argumentList() != null) {
+                int pIdx = 1;
+                for (YParser.ExpressionContext argExpr : ctx.argumentList().expression()) {
+                    String argVal = visit(argExpr);
+                    String pAddr = program.newTemp();
+                    program.emit(OpCode.ADD, tNew, String.valueOf(pIdx++), pAddr, line);
+                    program.emit(OpCode.STACK_WRITE, pAddr, argVal, "", line, "Param " + (pIdx - 1));
+                }
+            }
+            program.emit(OpCode.ADD, "P", String.valueOf(frameSize), "P", line, "Avanzar P");
+            program.emit(OpCode.CALL, funcName, "", "", line);
+            program.emit(OpCode.SUB, "P", String.valueOf(frameSize), "P", line, "Restaurar P");
         }
         return null;
     }
@@ -273,6 +491,7 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
         String labelDefault = ctx.defaultBranch() != null ? program.newLabel() : labelExit;
         program.emit(OpCode.GOTO, "", "", labelDefault, line);
 
+        loopExitLabels.push(labelExit);
         for (int i = 0; i < caseCount; i++) {
             program.emit(OpCode.LABEL, "", "", caseLabels[i], line);
             visit(ctx.caseBranch(i).block());
@@ -282,6 +501,7 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
             program.emit(OpCode.LABEL, "", "", labelDefault, line);
             visit(ctx.defaultBranch().block());
         }
+        loopExitLabels.pop();
         program.emit(OpCode.LABEL, "", "", labelExit, line);
         return null;
     }
@@ -347,7 +567,17 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
         return null;
     }
 
+    private String unescapeString(String s) {
+        if (s == null) return "";
+        return s.replace("\\n", "\n")
+                .replace("\\t", "\t")
+                .replace("\\r", "\r")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\");
+    }
+
     private String createStringLiteral(String str, int line) {
+        str = unescapeString(str);
         String heapRef = program.newTemp();
         program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "String literal");
         for (char c : str.toCharArray()) {
@@ -444,8 +674,13 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
             String right = visit(ctx.multiplicativeExpression(i));
             String opText = ctx.getChild(2 * i - 1).getText();
             String res = program.newTemp();
-            if ("+".equals(opText) && (isStringExpr(ctx.multiplicativeExpression(i - 1)) || isStringExpr(ctx.multiplicativeExpression(i)))) {
-                program.emit(OpCode.CONCAT_STR, left, right, res, line);
+            if ("+".equals(opText) && (isStringExpr(ctx.multiplicativeExpression(i - 1)) || isStringExpr(ctx.multiplicativeExpression(i)) || stringVars.contains(left))) {
+                boolean leftIsStr = isStringExpr(ctx.multiplicativeExpression(i - 1)) || stringVars.contains(left);
+                boolean rightIsStr = isStringExpr(ctx.multiplicativeExpression(i)) || stringVars.contains(right);
+                String mode = (leftIsStr && !rightIsStr) ? "str_num" :
+                              (!leftIsStr && rightIsStr) ? "num_str" : "str_str";
+                program.emit(OpCode.CONCAT_STR, left, right, res, line, mode);
+                stringVars.add(res);
             } else {
                 OpCode op = "+".equals(opText) ? OpCode.ADD : OpCode.SUB;
                 program.emit(op, left, right, res, line);
@@ -462,7 +697,12 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
         for (int i = 1; i < ctx.unaryExpression().size(); i++) {
             String right = visit(ctx.unaryExpression(i));
             String opText = ctx.getChild(2 * i - 1).getText();
-            OpCode op = "*".equals(opText) ? OpCode.MULT : OpCode.DIV;
+            OpCode op = switch (opText) {
+                case "*" -> OpCode.MULT;
+                case "/" -> OpCode.DIV;
+                case "%" -> OpCode.MOD;
+                default -> OpCode.MULT;
+            };
             String res = program.newTemp();
             program.emit(op, left, right, res, line);
             left = res;
@@ -528,19 +768,7 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
             return tRet;
         }
         if (ctx.target() != null) {
-            String varName = ctx.target().ID(0).getText();
-            String res = program.newTemp();
-            if (memory.isGlobal(varName, currentRoutine)) {
-                int offset = memory.getGlobalOffset(varName);
-                program.emit(OpCode.STACK_READ, String.valueOf(offset), "", res, line);
-            } else {
-                int offset = memory.getLocalOffset(currentRoutine, varName);
-                if (offset < 0) offset = memory.declareLocal(currentRoutine, varName);
-                String pAddr = program.newTemp();
-                program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
-                program.emit(OpCode.STACK_READ, pAddr, "", res, line);
-            }
-            return res;
+            return loadTarget(ctx.target(), line);
         }
         if (ctx.expression() != null) return visit(ctx.expression());
         return "0";
@@ -555,8 +783,9 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
         if (ctx.STRING() != null) {
             String str = ctx.STRING().getText();
             str = str.substring(1, str.length() - 1);
+            str = unescapeString(str);
             String heapRef = program.newTemp();
-            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "String \"" + str + "\"");
+            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "String \"" + str.replace("\n", "\\n") + "\"");
             for (char c : str.toCharArray()) {
                 program.emit(OpCode.HEAP_WRITE, "H", String.valueOf((int) c), "", line);
                 String newH = program.newTemp();

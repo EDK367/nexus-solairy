@@ -264,9 +264,15 @@ public class ExpressionEval {
         }
         Object base = evalPostfixExpr(ctx.postfixExpr());
         if (ctx.DOT() != null && ctx.LPAREN() != null) {
-            String method = ctx.ID().getText();
+            String methodName = ctx.ID().getText();
+            List<Object> args = new ArrayList<>();
+            if (ctx.argList() != null && ctx.argList().expression() != null) {
+                for (ZetarianoParser.ExpressionContext e : ctx.argList().expression()) {
+                    args.add(evalExpression(e));
+                }
+            }
             if (base instanceof Map map) {
-                return map.get(method);
+                return visitor.executeMethodCallOnObject((Map<String, Object>) map, methodName, args);
             }
             return null;
         }
@@ -326,7 +332,13 @@ public class ExpressionEval {
 
         String id = ctx.ID().getText();
         if (ctx.LPAREN() != null) {
-            return null;
+            List<Object> args = new ArrayList<>();
+            if (ctx.argList() != null && ctx.argList().expression() != null) {
+                for (ZetarianoParser.ExpressionContext e : ctx.argList().expression()) {
+                    args.add(evalExpression(e));
+                }
+            }
+            return visitor.executeFunctionCall(id, args);
         }
 
         Symbol s = visitor.resolveSymbol(id);

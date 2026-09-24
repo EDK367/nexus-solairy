@@ -85,15 +85,50 @@ public class ConditionStatement {
             if (!ct.equals(sel) && ct != DataType.ERROR && !TypeChecker.isAssignable(sel, ct)) {
                 visitor.reportError(c.getStart().getLine(), c.getStart().getCharPositionInLine(), TypeErrorSemantic.INCOMPATIBLE_TYPES, "Tipo de caso incompatible con el selector");
             }
-            visitor.getSymbolTable().pushScope("case");
-            visitor.visit(c.block());
-            visitor.getSymbolTable().popScope();
         }
 
-        if (ctx.defaultBranch() != null) {
+        if (!visitor.isInsideMain()) {
+            for (YParser.CaseBranchContext c : ctx.caseBranch()) {
+                visitor.getSymbolTable().pushScope("case");
+                if (c.block() != null) visitor.visit(c.block());
+                visitor.getSymbolTable().popScope();
+            }
+            if (ctx.defaultBranch() != null && ctx.defaultBranch().block() != null) {
+                visitor.getSymbolTable().pushScope("default");
+                visitor.visit(ctx.defaultBranch().block());
+                visitor.getSymbolTable().popScope();
+            }
+            yVisitor.setInsideSwitch(prevSwitch);
+            return DataType.VOID;
+        }
+
+        Object selVal = expressionEval.evalExpression(ctx.expression());
+        boolean matched = false;
+        for (YParser.CaseBranchContext c : ctx.caseBranch()) {
+            Object caseVal = expressionEval.evalExpression(c.expression());
+            boolean matches = (selVal != null && caseVal != null &&
+                (selVal.equals(caseVal) ||
+                 (selVal instanceof Number sn && caseVal instanceof Number cn && sn.doubleValue() == cn.doubleValue())));
+            if (matches || matched) {
+                matched = true;
+                visitor.getSymbolTable().pushScope("case");
+                if (c.block() != null) visitor.visit(c.block());
+                visitor.getSymbolTable().popScope();
+                if (visitor.isShouldBreak()) {
+                    visitor.setShouldBreak(false);
+                    break;
+                }
+                if (visitor.isShouldReturn()) break;
+            }
+        }
+
+        if (!matched && ctx.defaultBranch() != null && ctx.defaultBranch().block() != null) {
             visitor.getSymbolTable().pushScope("default");
             visitor.visit(ctx.defaultBranch().block());
             visitor.getSymbolTable().popScope();
+            if (visitor.isShouldBreak()) {
+                visitor.setShouldBreak(false);
+            }
         }
 
         yVisitor.setInsideSwitch(prevSwitch);

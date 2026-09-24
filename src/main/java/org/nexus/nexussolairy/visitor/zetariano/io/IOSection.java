@@ -32,13 +32,15 @@ public class IOSection {
         if (ctx == null) return DataType.VOID;
         if (ctx.expression() != null) {
             expressionDelegate.visitExpression(ctx.expression());
-            String text = expressionEval.evaluateExprText(ctx.expression());
-            printOutput.add(text);
-            if (livePrinter != null) {
-                if (ctx.PRINTLN() != null) {
-                    livePrinter.accept(text + "\n");
-                } else {
-                    livePrinter.accept(text);
+            if (visitor.isInsideMain()) {
+                String text = expressionEval.evaluateExprText(ctx.expression());
+                printOutput.add(text);
+                if (livePrinter != null) {
+                    if (ctx.PRINTLN() != null) {
+                        livePrinter.accept(text + "\n");
+                    } else {
+                        livePrinter.accept(text);
+                    }
                 }
             }
         }

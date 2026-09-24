@@ -20,6 +20,7 @@ import org.nexus.nexussolairy.visitor.zetariano.variable.VariableSection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class ZetarianoVisitorImpl extends ZetarianoParserBaseVisitor<DataType> implements VisitorContext {
@@ -263,7 +264,176 @@ public class ZetarianoVisitorImpl extends ZetarianoParserBaseVisitor<DataType> i
 
     @Override
     public Object executeFunctionCall(String name, List<Object> arguments) {
-        return null;
+        ClassSymbol cls = currentClass;
+        if (cls == null) {
+            for (ClassSymbol c : symbolTable.getClassRegistry().values()) {
+                if (c.resolveMethod(name) != null) {
+                    cls = c;
+                    break;
+                }
+            }
+        }
+        if (cls == null) return null;
+
+        List<Symbol> mList = cls.resolveMethod(name);
+        if (mList == null || mList.isEmpty()) return null;
+        int argCount = arguments != null ? arguments.size() : 0;
+        FunctionSymbol targetMethod = null;
+        for (Symbol s : mList) {
+            if (s instanceof FunctionSymbol fs) {
+                if (fs.getParams().size() == argCount) {
+                    targetMethod = fs;
+                    break;
+                }
+            }
+        }
+        if (targetMethod == null && !mList.isEmpty() && mList.get(0) instanceof FunctionSymbol fs) {
+            targetMethod = fs;
+        }
+        if (targetMethod == null || !(targetMethod.getAstContext() instanceof ZetarianoParser.MethodDeclContext mCtx)) return null;
+
+        ClassSymbol prevClass = currentClass;
+        FunctionSymbol prevMethod = currentMethod;
+        DataType prevRetType = currentFunctionReturnType;
+        boolean prevInsideFunc = insideFunction;
+        boolean prevInsideMain = insideMain;
+        boolean prevShouldReturn = shouldReturn;
+        boolean prevShouldBreak = shouldBreak;
+        boolean prevShouldContinue = shouldContinue;
+        Object prevReturnVal = returnValue;
+
+        currentClass = cls;
+        currentMethod = targetMethod;
+        currentFunctionReturnType = targetMethod.getType();
+        insideFunction = true;
+        insideMain = true;
+        shouldReturn = false;
+        shouldBreak = false;
+        shouldContinue = false;
+        returnValue = null;
+
+        pushScope("method_" + name);
+        if (targetMethod.getParams() != null) {
+            for (int i = 0; i < targetMethod.getParams().size(); i++) {
+                VariableSymbol param = targetMethod.getParams().get(i);
+                Object pVal = (arguments != null && i < arguments.size()) ? arguments.get(i) : null;
+                VariableSymbol ps = new VariableSymbol(param.getName(), param.getSemanticType(), pVal, param.line, param.column);
+                symbolTable.getCurrentScope().define(ps);
+            }
+        }
+
+        if (mCtx.block() != null) {
+            visitBlock(mCtx.block());
+        }
+
+        Object result = returnValue;
+
+        popScope();
+
+        currentClass = prevClass;
+        currentMethod = prevMethod;
+        currentFunctionReturnType = prevRetType;
+        insideFunction = prevInsideFunc;
+        insideMain = prevInsideMain;
+        shouldReturn = prevShouldReturn;
+        shouldBreak = prevShouldBreak;
+        shouldContinue = prevShouldContinue;
+        returnValue = prevReturnVal;
+
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Object executeMethodCallOnObject(Map<String, Object> objInstance, String methodName, List<Object> arguments) {
+        if (objInstance == null) return null;
+        String clsName = (String) objInstance.get("__class__");
+        if (clsName == null) return null;
+        ClassSymbol cls = symbolTable.lookupClass(clsName);
+        if (cls == null) {
+            Symbol s = symbolTable.getGlobalScope().resolve(clsName);
+            if (s instanceof ClassSymbol cs) cls = cs;
+        }
+        if (cls == null) return null;
+
+        List<Symbol> mList = cls.resolveMethod(methodName);
+        if (mList == null || mList.isEmpty()) return null;
+        int argCount = arguments != null ? arguments.size() : 0;
+        FunctionSymbol targetMethod = null;
+        for (Symbol s : mList) {
+            if (s instanceof FunctionSymbol fs) {
+                if (fs.getParams().size() == argCount) {
+                    targetMethod = fs;
+                    break;
+                }
+            }
+        }
+        if (targetMethod == null && !mList.isEmpty() && mList.get(0) instanceof FunctionSymbol fs) {
+            targetMethod = fs;
+        }
+        if (targetMethod == null || !(targetMethod.getAstContext() instanceof ZetarianoParser.MethodDeclContext mCtx)) return null;
+
+        ClassSymbol prevClass = currentClass;
+        FunctionSymbol prevMethod = currentMethod;
+        DataType prevRetType = currentFunctionReturnType;
+        boolean prevInsideFunc = insideFunction;
+        boolean prevInsideMain = insideMain;
+        boolean prevShouldReturn = shouldReturn;
+        boolean prevShouldBreak = shouldBreak;
+        boolean prevShouldContinue = shouldContinue;
+        Object prevReturnVal = returnValue;
+
+        currentClass = cls;
+        currentMethod = targetMethod;
+        currentFunctionReturnType = targetMethod.getType();
+        insideFunction = true;
+        insideMain = true;
+        shouldReturn = false;
+        shouldBreak = false;
+        shouldContinue = false;
+        returnValue = null;
+
+        pushScope("instance");
+        for (Symbol f : cls.getFields().values()) {
+            Object fVal = objInstance.containsKey(f.getName()) ? objInstance.get(f.getName()) : f.getValue();
+            VariableSymbol fs = new VariableSymbol(f.getName(), f.getSemanticType(), fVal, f.line, f.column);
+            symbolTable.getCurrentScope().define(fs);
+        }
+
+        pushScope("method_" + methodName);
+        if (targetMethod.getParams() != null) {
+            for (int i = 0; i < targetMethod.getParams().size(); i++) {
+                VariableSymbol param = targetMethod.getParams().get(i);
+                Object pVal = (arguments != null && i < arguments.size()) ? arguments.get(i) : null;
+                VariableSymbol ps = new VariableSymbol(param.getName(), param.getSemanticType(), pVal, param.line, param.column);
+                symbolTable.getCurrentScope().define(ps);
+            }
+        }
+
+        if (mCtx.block() != null) {
+            visitBlock(mCtx.block());
+        }
+
+        Object result = returnValue;
+
+        popScope(); // pop method scope
+
+        Scope instScope = symbolTable.getCurrentScope();
+        for (Symbol s : instScope.getSymbols().values()) {
+            objInstance.put(s.getName(), s.getValue());
+        }
+        popScope(); // pop instance scope
+
+        currentClass = prevClass;
+        currentMethod = prevMethod;
+        currentFunctionReturnType = prevRetType;
+        insideFunction = prevInsideFunc;
+        insideMain = prevInsideMain;
+        shouldReturn = prevShouldReturn;
+        shouldBreak = prevShouldBreak;
+        shouldContinue = prevShouldContinue;
+        returnValue = prevReturnVal;
+
+        return result;
     }
 
     @Override
@@ -380,7 +550,13 @@ public class ZetarianoVisitorImpl extends ZetarianoParserBaseVisitor<DataType> i
         if (ctx.continueStmt() != null) return visitContinueStmt(ctx.continueStmt());
         if (ctx.printStmt() != null) return visitPrintStmt(ctx.printStmt());
         if (ctx.readStmt() != null) return visitReadStmt(ctx.readStmt());
-        if (ctx.expression() != null) return visitExpression(ctx.expression());
+        if (ctx.expression() != null) {
+            DataType dt = visitExpression(ctx.expression());
+            if (isInsideMain()) {
+                expressionEval.evalExpression(ctx.expression());
+            }
+            return dt;
+        }
         if (ctx.block() != null) return visitBlock(ctx.block());
         return DataType.VOID;
     }

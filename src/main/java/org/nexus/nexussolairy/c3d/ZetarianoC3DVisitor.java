@@ -20,6 +20,7 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
     private final Deque<String> loopUpdateLabels = new ArrayDeque<>();
 
     private final java.util.Map<String, java.util.Map<String, Integer>> classFieldOffsets = new java.util.LinkedHashMap<>();
+    private final java.util.Map<String, String> varClasses = new java.util.HashMap<>();
 
     private final org.nexus.nexussolairy.model.semantic.SymbolTable symbolTable;
 
@@ -50,10 +51,16 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
             int fIdx = 0;
             for (var child : ctx.classBody().children) {
                 if (child instanceof ZetarianoParser.FieldDeclContext fdc) {
+                    if (fdc.ID() == null) continue;
                     String fieldName = fdc.ID().getText();
                     fieldMap.put(fieldName, fIdx++);
-                    if (fdc.type() != null && isStringType(fdc.type().getText())) {
-                        stringVars.add(fieldName);
+                    if (fdc.type() != null) {
+                        String fType = fdc.type().getText();
+                        if (isStringType(fType)) {
+                            stringVars.add(fieldName);
+                        } else {
+                            varClasses.put(fieldName, fType);
+                        }
                     }
                 }
             }
@@ -71,12 +78,51 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
     }
 
     private int getFieldOffset(String className, String fieldName) {
-        java.util.Map<String, Integer> fields = classFieldOffsets.get(className);
-        if (fields != null && fields.containsKey(fieldName)) {
-            return fields.get(fieldName);
+        if (className != null) {
+            java.util.Map<String, Integer> fields = classFieldOffsets.get(className);
+            if (fields != null && fields.containsKey(fieldName)) {
+                return fields.get(fieldName);
+            }
+            int off = memory.getClassFieldOffset(className, fieldName);
+            if (off >= 0) return off;
         }
-        int off = memory.getClassFieldOffset(className, fieldName);
+        int off = memory.getClassFieldOffset(currentClass, fieldName);
         return off >= 0 ? off : 0;
+    }
+
+    private String resolveTargetClass(String targetName, String methodName) {
+        if ("this".equals(targetName)) {
+            return currentClass;
+        }
+        if (targetName != null) {
+            String cls = varClasses.get(targetName);
+            if (cls != null && !cls.isEmpty()) {
+                return cls;
+            }
+            if (symbolTable != null) {
+                org.nexus.nexussolairy.model.semantic.Symbol s = symbolTable.lookup(targetName);
+                if (s != null && s.getStructTypeName() != null) {
+                    return s.getStructTypeName();
+                }
+                if (currentClass != null && !currentClass.isEmpty()) {
+                    org.nexus.nexussolairy.model.semantic.ClassSymbol curCs = symbolTable.lookupClass(currentClass);
+                    if (curCs != null) {
+                        org.nexus.nexussolairy.model.semantic.Symbol f = curCs.resolveField(targetName);
+                        if (f != null && f.getSemanticType() != null) {
+                            return f.getSemanticType().getName();
+                        }
+                    }
+                }
+            }
+        }
+        if (methodName != null && symbolTable != null) {
+            for (org.nexus.nexussolairy.model.semantic.ClassSymbol cs : symbolTable.getClassRegistry().values()) {
+                if (cs.resolveMethod(methodName) != null && !cs.resolveMethod(methodName).isEmpty()) {
+                    return cs.getName();
+                }
+            }
+        }
+        return (currentClass != null && !currentClass.isEmpty()) ? currentClass : targetName;
     }
 
     @Override
@@ -92,8 +138,13 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
             for (ZetarianoParser.ParamContext p : ctx.paramList().param()) {
                 String pName = p.ID().getText();
                 memory.declareParam(ctorName, pName);
-                if (p.type() != null && isStringType(p.type().getText())) {
-                    stringVars.add(pName);
+                if (p.type() != null) {
+                    String pType = p.type().getText();
+                    if (isStringType(pType)) {
+                        stringVars.add(pName);
+                    } else {
+                        varClasses.put(pName, pType);
+                    }
                 }
             }
         }
@@ -117,8 +168,13 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
             for (ZetarianoParser.ParamContext p : ctx.paramList().param()) {
                 String pName = p.ID().getText();
                 memory.declareParam(methodName, pName);
-                if (p.type() != null && isStringType(p.type().getText())) {
-                    stringVars.add(pName);
+                if (p.type() != null) {
+                    String pType = p.type().getText();
+                    if (isStringType(pType)) {
+                        stringVars.add(pName);
+                    } else {
+                        varClasses.put(pName, pType);
+                    }
                 }
             }
         }
@@ -133,8 +189,13 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
     public String visitVarDecl(ZetarianoParser.VarDeclContext ctx) {
         int line = ctx.getStart().getLine();
         String varName = ctx.ID().getText();
-        if (ctx.type() != null && isStringType(ctx.type().getText())) {
-            stringVars.add(varName);
+        if (ctx.type() != null) {
+            String vType = ctx.type().getText();
+            if (isStringType(vType)) {
+                stringVars.add(varName);
+            } else {
+                varClasses.put(varName, vType);
+            }
         }
         int offset = memory.declareLocal(currentRoutine, varName);
 
@@ -148,14 +209,11 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
         return null;
     }
 
-    @Override
-    public String visitAssignStmt(ZetarianoParser.AssignStmtContext ctx) {
-        int line = ctx.getStart().getLine();
-        String valTemp = visit(ctx.expression());
-
-        if (ctx.leftValue() != null && ctx.leftValue().ID().size() == 2) {
-            String objName = ctx.leftValue().ID(0).getText();
-            String fieldName = ctx.leftValue().ID(1).getText();
+    private String loadLeftValue(ZetarianoParser.LeftValueContext ctx, int line) {
+        if (ctx == null) return "0";
+        if (ctx.DOT() != null && ctx.ID().size() == 2) {
+            String objName = ctx.ID(0).getText();
+            String fieldName = ctx.ID(1).getText();
             String objPtr;
             if ("this".equals(objName)) {
                 String pAddr = program.newTemp();
@@ -163,21 +221,131 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
                 objPtr = program.newTemp();
                 program.emit(OpCode.STACK_READ, pAddr, "", objPtr, line);
             } else {
-                int offset = memory.getLocalOffset(currentRoutine, objName);
-                if (offset < 0) offset = memory.declareLocal(currentRoutine, objName);
+                int localOff = memory.getLocalOffset(currentRoutine, objName);
+                if (localOff < 0 && isClassField(objName)) {
+                    String pThis = program.newTemp();
+                    program.emit(OpCode.ADD, "P", "1", pThis, line);
+                    String thisPtr = program.newTemp();
+                    program.emit(OpCode.STACK_READ, pThis, "", thisPtr, line);
+                    int off = getFieldOffset(currentClass, objName);
+                    String fAddr = program.newTemp();
+                    program.emit(OpCode.ADD, thisPtr, String.valueOf(off), fAddr, line);
+                    objPtr = program.newTemp();
+                    program.emit(OpCode.HEAP_READ, fAddr, "", objPtr, line);
+                } else {
+                    int offset = localOff;
+                    if (offset < 0) offset = memory.declareLocal(currentRoutine, objName);
+                    String pAddr = program.newTemp();
+                    program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+                    objPtr = program.newTemp();
+                    program.emit(OpCode.STACK_READ, pAddr, "", objPtr, line);
+                }
+            }
+            String targetClass = resolveTargetClass(objName, null);
+            int fieldOffset = getFieldOffset(targetClass, fieldName);
+            String fieldAddr = program.newTemp();
+            program.emit(OpCode.ADD, objPtr, String.valueOf(fieldOffset), fieldAddr, line);
+            String res = program.newTemp();
+            program.emit(OpCode.HEAP_READ, fieldAddr, "", res, line);
+            return res;
+        }
+
+        if (ctx.LBRACK() != null && ctx.expression() != null) {
+            String arrName = ctx.ID(0).getText();
+            int offset = memory.getLocalOffset(currentRoutine, arrName);
+            if (offset < 0) offset = memory.declareLocal(currentRoutine, arrName);
+            String pAddr = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+            String arrPtr = program.newTemp();
+            program.emit(OpCode.STACK_READ, pAddr, "", arrPtr, line);
+            String idxTemp = visit(ctx.expression());
+            String elemAddr = program.newTemp();
+            program.emit(OpCode.ADD, arrPtr, idxTemp, elemAddr, line);
+            String res = program.newTemp();
+            program.emit(OpCode.HEAP_READ, elemAddr, "", res, line);
+            return res;
+        }
+
+        String varName = ctx.ID(0).getText();
+        int localOff = memory.getLocalOffset(currentRoutine, varName);
+        if (localOff < 0 && isClassField(varName)) {
+            String pThis = program.newTemp();
+            program.emit(OpCode.ADD, "P", "1", pThis, line);
+            String thisPtr = program.newTemp();
+            program.emit(OpCode.STACK_READ, pThis, "", thisPtr, line);
+            int fieldOffset = getFieldOffset(currentClass, varName);
+            String fieldAddr = program.newTemp();
+            program.emit(OpCode.ADD, thisPtr, String.valueOf(fieldOffset), fieldAddr, line);
+            String res = program.newTemp();
+            program.emit(OpCode.HEAP_READ, fieldAddr, "", res, line);
+            return res;
+        }
+
+        int offset = localOff;
+        if (offset < 0) offset = memory.declareLocal(currentRoutine, varName);
+        String pAddr = program.newTemp();
+        String res = program.newTemp();
+        program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+        program.emit(OpCode.STACK_READ, pAddr, "", res, line);
+        return res;
+    }
+
+    private void storeLeftValue(ZetarianoParser.LeftValueContext ctx, String valTemp, int line) {
+        if (ctx == null) return;
+        if (ctx.DOT() != null && ctx.ID().size() == 2) {
+            String objName = ctx.ID(0).getText();
+            String fieldName = ctx.ID(1).getText();
+            String objPtr;
+            if ("this".equals(objName)) {
                 String pAddr = program.newTemp();
-                program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+                program.emit(OpCode.ADD, "P", "1", pAddr, line);
                 objPtr = program.newTemp();
                 program.emit(OpCode.STACK_READ, pAddr, "", objPtr, line);
+            } else {
+                int localOff = memory.getLocalOffset(currentRoutine, objName);
+                if (localOff < 0 && isClassField(objName)) {
+                    String pThis = program.newTemp();
+                    program.emit(OpCode.ADD, "P", "1", pThis, line);
+                    String thisPtr = program.newTemp();
+                    program.emit(OpCode.STACK_READ, pThis, "", thisPtr, line);
+                    int off = getFieldOffset(currentClass, objName);
+                    String fAddr = program.newTemp();
+                    program.emit(OpCode.ADD, thisPtr, String.valueOf(off), fAddr, line);
+                    objPtr = program.newTemp();
+                    program.emit(OpCode.HEAP_READ, fAddr, "", objPtr, line);
+                } else {
+                    int offset = localOff;
+                    if (offset < 0) offset = memory.declareLocal(currentRoutine, objName);
+                    String pAddr = program.newTemp();
+                    program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+                    objPtr = program.newTemp();
+                    program.emit(OpCode.STACK_READ, pAddr, "", objPtr, line);
+                }
             }
-            int fieldOffset = getFieldOffset(currentClass, fieldName);
+            String targetClass = resolveTargetClass(objName, null);
+            int fieldOffset = getFieldOffset(targetClass, fieldName);
             String fieldAddr = program.newTemp();
             program.emit(OpCode.ADD, objPtr, String.valueOf(fieldOffset), fieldAddr, line);
             program.emit(OpCode.HEAP_WRITE, fieldAddr, valTemp, "", line);
-            return null;
+            return;
         }
 
-        String varName = ctx.leftValue().ID(0).getText();
+        if (ctx.LBRACK() != null && ctx.expression() != null) {
+            String arrName = ctx.ID(0).getText();
+            int offset = memory.getLocalOffset(currentRoutine, arrName);
+            if (offset < 0) offset = memory.declareLocal(currentRoutine, arrName);
+            String pAddr = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+            String arrPtr = program.newTemp();
+            program.emit(OpCode.STACK_READ, pAddr, "", arrPtr, line);
+            String idxTemp = visit(ctx.expression());
+            String elemAddr = program.newTemp();
+            program.emit(OpCode.ADD, arrPtr, idxTemp, elemAddr, line);
+            program.emit(OpCode.HEAP_WRITE, elemAddr, valTemp, "", line);
+            return;
+        }
+
+        String varName = ctx.ID(0).getText();
         int localOff = memory.getLocalOffset(currentRoutine, varName);
         if (localOff < 0 && isClassField(varName)) {
             String pThis = program.newTemp();
@@ -188,7 +356,7 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
             String fieldAddr = program.newTemp();
             program.emit(OpCode.ADD, thisPtr, String.valueOf(fieldOffset), fieldAddr, line);
             program.emit(OpCode.HEAP_WRITE, fieldAddr, valTemp, "", line);
-            return null;
+            return;
         }
 
         int offset = localOff;
@@ -196,6 +364,143 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
         String pAddr = program.newTemp();
         program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
         program.emit(OpCode.STACK_WRITE, pAddr, valTemp, "", line);
+    }
+
+    @Override
+    public String visitAssignStmt(ZetarianoParser.AssignStmtContext ctx) {
+        int line = ctx.getStart().getLine();
+        if (ctx.INC() != null || ctx.DEC() != null) {
+            String curVal = loadLeftValue(ctx.leftValue(), line);
+            String nextVal = program.newTemp();
+            OpCode op = ctx.INC() != null ? OpCode.ADD : OpCode.SUB;
+            program.emit(op, curVal, "1", nextVal, line);
+            storeLeftValue(ctx.leftValue(), nextVal, line);
+            return null;
+        }
+
+        String valTemp = visit(ctx.expression());
+        if (ctx.ADD_ASSIGN() != null || ctx.SUB_ASSIGN() != null || ctx.MUL_ASSIGN() != null || ctx.DIV_ASSIGN() != null) {
+            String curVal = loadLeftValue(ctx.leftValue(), line);
+            String nextVal = program.newTemp();
+            OpCode op = ctx.ADD_ASSIGN() != null ? OpCode.ADD :
+                        ctx.SUB_ASSIGN() != null ? OpCode.SUB :
+                        ctx.MUL_ASSIGN() != null ? OpCode.MULT : OpCode.DIV;
+            program.emit(op, curVal, valTemp, nextVal, line);
+            storeLeftValue(ctx.leftValue(), nextVal, line);
+            return null;
+        }
+
+        storeLeftValue(ctx.leftValue(), valTemp, line);
+        return null;
+    }
+
+    @Override
+    public String visitForInit(ZetarianoParser.ForInitContext ctx) {
+        int line = ctx.getStart().getLine();
+        if (ctx.type() != null) {
+            String varName = ctx.ID().getText();
+            int offset = memory.declareLocal(currentRoutine, varName);
+            String valTemp = "0";
+            if (ctx.expression() != null) {
+                valTemp = visit(ctx.expression());
+            }
+            String pAddr = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+            program.emit(OpCode.STACK_WRITE, pAddr, valTemp, "", line);
+        } else if (ctx.ID() != null) {
+            String varName = ctx.ID().getText();
+            String valTemp = visit(ctx.expression());
+            int offset = memory.getLocalOffset(currentRoutine, varName);
+            if (offset < 0) offset = memory.declareLocal(currentRoutine, varName);
+            String pAddr = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
+            program.emit(OpCode.STACK_WRITE, pAddr, valTemp, "", line);
+        }
+        return null;
+    }
+
+    @Override
+    public String visitForUpdate(ZetarianoParser.ForUpdateContext ctx) {
+        int line = ctx.getStart().getLine();
+        if (ctx.INC() != null || ctx.DEC() != null) {
+            String curVal = loadLeftValue(ctx.leftValue(), line);
+            String nextVal = program.newTemp();
+            OpCode op = ctx.INC() != null ? OpCode.ADD : OpCode.SUB;
+            program.emit(op, curVal, "1", nextVal, line);
+            storeLeftValue(ctx.leftValue(), nextVal, line);
+            return null;
+        }
+
+        String valTemp = visit(ctx.expression());
+        if (ctx.ASSIGN() != null) {
+            storeLeftValue(ctx.leftValue(), valTemp, line);
+        } else {
+            String curVal = loadLeftValue(ctx.leftValue(), line);
+            String nextVal = program.newTemp();
+            OpCode op = ctx.ADD_ASSIGN() != null ? OpCode.ADD :
+                        ctx.SUB_ASSIGN() != null ? OpCode.SUB :
+                        ctx.MUL_ASSIGN() != null ? OpCode.MULT : OpCode.DIV;
+            program.emit(op, curVal, valTemp, nextVal, line);
+            storeLeftValue(ctx.leftValue(), nextVal, line);
+        }
+        return null;
+    }
+
+    @Override
+    public String visitBreakStmt(ZetarianoParser.BreakStmtContext ctx) {
+        if (!loopExitLabels.isEmpty()) {
+            program.emit(OpCode.GOTO, "", "", loopExitLabels.peek(), ctx.getStart().getLine());
+        }
+        return null;
+    }
+
+    @Override
+    public String visitContinueStmt(ZetarianoParser.ContinueStmtContext ctx) {
+        if (!loopUpdateLabels.isEmpty()) {
+            program.emit(OpCode.GOTO, "", "", loopUpdateLabels.peek(), ctx.getStart().getLine());
+        }
+        return null;
+    }
+
+    @Override
+    public String visitSwitchStmt(ZetarianoParser.SwitchStmtContext ctx) {
+        int line = ctx.getStart().getLine();
+        String switchVal = visit(ctx.expression());
+        String labelExit = program.newLabel();
+
+        int caseCount = ctx.caseBranch().size();
+        String[] caseLabels = new String[caseCount];
+        for (int i = 0; i < caseCount; i++) {
+            caseLabels[i] = program.newLabel();
+            String caseVal = visit(ctx.caseBranch(i).expression());
+            String cmpTemp = program.newTemp();
+            program.emit(OpCode.EQ, switchVal, caseVal, cmpTemp, line);
+            program.emit(OpCode.IF_TRUE, cmpTemp, "", caseLabels[i], line);
+        }
+
+        String labelDefault = ctx.defaultBranch() != null ? program.newLabel() : labelExit;
+        program.emit(OpCode.GOTO, "", "", labelDefault, line);
+
+        loopExitLabels.push(labelExit);
+        for (int i = 0; i < caseCount; i++) {
+            program.emit(OpCode.LABEL, "", "", caseLabels[i], line);
+            if (ctx.caseBranch(i).statement() != null) {
+                for (ZetarianoParser.StatementContext st : ctx.caseBranch(i).statement()) {
+                    visit(st);
+                }
+            }
+        }
+
+        if (ctx.defaultBranch() != null) {
+            program.emit(OpCode.LABEL, "", "", labelDefault, line);
+            if (ctx.defaultBranch().statement() != null) {
+                for (ZetarianoParser.StatementContext st : ctx.defaultBranch().statement()) {
+                    visit(st);
+                }
+            }
+        }
+        loopExitLabels.pop();
+        program.emit(OpCode.LABEL, "", "", labelExit, line);
         return null;
     }
 
@@ -390,7 +695,17 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
         return null;
     }
 
+    private String unescapeString(String s) {
+        if (s == null) return "";
+        return s.replace("\\n", "\n")
+                .replace("\\t", "\t")
+                .replace("\\r", "\r")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\");
+    }
+
     private String createStringLiteral(String str, int line) {
+        str = unescapeString(str);
         String heapRef = program.newTemp();
         program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "String literal");
         for (char c : str.toCharArray()) {
@@ -457,6 +772,42 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
     }
 
     @Override
+    public String visitEqExpr(ZetarianoParser.EqExprContext ctx) {
+        int line = ctx.getStart().getLine();
+        String left = visit(ctx.relExpr(0));
+        for (int i = 1; i < ctx.relExpr().size(); i++) {
+            String right = visit(ctx.relExpr(i));
+            String opText = ctx.getChild(2 * i - 1).getText();
+            OpCode op = "==".equals(opText) ? OpCode.EQ : OpCode.NEQ;
+            String res = program.newTemp();
+            program.emit(op, left, right, res, line);
+            left = res;
+        }
+        return left;
+    }
+
+    @Override
+    public String visitRelExpr(ZetarianoParser.RelExprContext ctx) {
+        int line = ctx.getStart().getLine();
+        String left = visit(ctx.addExpr(0));
+        for (int i = 1; i < ctx.addExpr().size(); i++) {
+            String right = visit(ctx.addExpr(i));
+            String opText = ctx.getChild(2 * i - 1).getText();
+            OpCode op = switch (opText) {
+                case "<" -> OpCode.LT;
+                case "<=" -> OpCode.LE;
+                case ">" -> OpCode.GT;
+                case ">=" -> OpCode.GE;
+                default -> OpCode.LT;
+            };
+            String res = program.newTemp();
+            program.emit(op, left, right, res, line);
+            left = res;
+        }
+        return left;
+    }
+
+    @Override
     public String visitAddExpr(ZetarianoParser.AddExprContext ctx) {
         int line = ctx.getStart().getLine();
         String left = visit(ctx.mulExpr(0));
@@ -464,8 +815,13 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
             String right = visit(ctx.mulExpr(i));
             String opText = ctx.getChild(2 * i - 1).getText();
             String res = program.newTemp();
-            if ("+".equals(opText) && (isStringExpr(ctx.mulExpr(i - 1)) || isStringExpr(ctx.mulExpr(i)))) {
-                program.emit(OpCode.CONCAT_STR, left, right, res, line);
+            if ("+".equals(opText) && (isStringExpr(ctx.mulExpr(i - 1)) || isStringExpr(ctx.mulExpr(i)) || stringVars.contains(left))) {
+                boolean leftIsStr = isStringExpr(ctx.mulExpr(i - 1)) || stringVars.contains(left);
+                boolean rightIsStr = isStringExpr(ctx.mulExpr(i)) || stringVars.contains(right);
+                String mode = (leftIsStr && !rightIsStr) ? "str_num" :
+                              (!leftIsStr && rightIsStr) ? "num_str" : "str_str";
+                program.emit(OpCode.CONCAT_STR, left, right, res, line, mode);
+                stringVars.add(res);
             } else {
                 OpCode op = "+".equals(opText) ? OpCode.ADD : OpCode.SUB;
                 program.emit(op, left, right, res, line);
@@ -478,6 +834,42 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
     @Override
     public String visitPostfixExpr(ZetarianoParser.PostfixExprContext ctx) {
         int line = ctx.getStart().getLine();
+        if (ctx.DOT() != null && ctx.LPAREN() != null) {
+            String targetName = ctx.postfixExpr().getText();
+            String methodName = ctx.ID().getText();
+            String objPtr;
+            if ("this".equals(targetName)) {
+                String pAddr = program.newTemp();
+                program.emit(OpCode.ADD, "P", "1", pAddr, line);
+                objPtr = program.newTemp();
+                program.emit(OpCode.STACK_READ, pAddr, "", objPtr, line);
+            } else {
+                objPtr = visit(ctx.postfixExpr());
+            }
+            int frameOffset = memory.getCallFrameOffset(currentRoutine);
+            String tNew = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(frameOffset), tNew, line);
+            String thisAddr = program.newTemp();
+            program.emit(OpCode.ADD, tNew, "1", thisAddr, line);
+            program.emit(OpCode.STACK_WRITE, thisAddr, objPtr, "", line, "Pass this");
+
+            if (ctx.argList() != null) {
+                int pIdx = 2;
+                for (ZetarianoParser.ExpressionContext argExpr : ctx.argList().expression()) {
+                    String argVal = visit(argExpr);
+                    String pAddr = program.newTemp();
+                    program.emit(OpCode.ADD, tNew, String.valueOf(pIdx++), pAddr, line);
+                    program.emit(OpCode.STACK_WRITE, pAddr, argVal, "", line);
+                }
+            }
+            String targetClass = resolveTargetClass(targetName, methodName);
+            program.emit(OpCode.ADD, "P", String.valueOf(frameOffset), "P", line);
+            program.emit(OpCode.CALL, targetClass + "_" + methodName, "", "", line);
+            program.emit(OpCode.SUB, "P", String.valueOf(frameOffset), "P", line);
+            String tRet = program.newTemp();
+            program.emit(OpCode.STACK_READ, tNew, "", tRet, line);
+            return tRet;
+        }
         if (ctx.DOT() != null) {
             String targetName = ctx.postfixExpr().getText();
             String fieldName = ctx.ID().getText();
@@ -488,14 +880,10 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
                 objPtr = program.newTemp();
                 program.emit(OpCode.STACK_READ, pAddr, "", objPtr, line);
             } else {
-                int offset = memory.getLocalOffset(currentRoutine, targetName);
-                if (offset < 0) offset = memory.declareLocal(currentRoutine, targetName);
-                String pAddr = program.newTemp();
-                program.emit(OpCode.ADD, "P", String.valueOf(offset), pAddr, line);
-                objPtr = program.newTemp();
-                program.emit(OpCode.STACK_READ, pAddr, "", objPtr, line);
+                objPtr = visit(ctx.postfixExpr());
             }
-            int fieldOffset = getFieldOffset(currentClass, fieldName);
+            String targetClass = resolveTargetClass(targetName, null);
+            int fieldOffset = getFieldOffset(targetClass, fieldName);
             String fieldAddr = program.newTemp();
             program.emit(OpCode.ADD, objPtr, String.valueOf(fieldOffset), fieldAddr, line);
             String resTemp = program.newTemp();
@@ -530,7 +918,55 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
         int line = ctx.getStart().getLine();
         if (ctx.literal() != null) return visit(ctx.literal());
         if (ctx.NULL() != null) return "-1";
+        if (ctx.READ() != null) {
+            String readTemp = program.newTemp();
+            program.emit(OpCode.READ, "", "", readTemp, line);
+            return readTemp;
+        }
+        if (ctx.arrayInit() != null) {
+            String heapRef = program.newTemp();
+            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "Array literal");
+            if (ctx.arrayInit().argList() != null) {
+                for (ZetarianoParser.ExpressionContext e : ctx.arrayInit().argList().expression()) {
+                    String elemVal = visit(e);
+                    program.emit(OpCode.HEAP_WRITE, "H", elemVal, "", line);
+                    String newH = program.newTemp();
+                    program.emit(OpCode.ADD, "H", "1", newH, line);
+                    program.emit(OpCode.ASSIGN, newH, "", "H", line);
+                }
+            }
+            return heapRef;
+        }
         if (ctx.newExpr() != null) return visit(ctx.newExpr());
+        if (ctx.ID() != null && ctx.LPAREN() != null) {
+            String methodName = ctx.ID().getText();
+            int frameOffset = memory.getCallFrameOffset(currentRoutine);
+            String tNew = program.newTemp();
+            program.emit(OpCode.ADD, "P", String.valueOf(frameOffset), tNew, line);
+            String pThis = program.newTemp();
+            program.emit(OpCode.ADD, "P", "1", pThis, line);
+            String thisPtr = program.newTemp();
+            program.emit(OpCode.STACK_READ, pThis, "", thisPtr, line);
+            String thisAddr = program.newTemp();
+            program.emit(OpCode.ADD, tNew, "1", thisAddr, line);
+            program.emit(OpCode.STACK_WRITE, thisAddr, thisPtr, "", line);
+
+            if (ctx.argList() != null) {
+                int pIdx = 2;
+                for (ZetarianoParser.ExpressionContext argExpr : ctx.argList().expression()) {
+                    String argVal = visit(argExpr);
+                    String pAddr = program.newTemp();
+                    program.emit(OpCode.ADD, tNew, String.valueOf(pIdx++), pAddr, line);
+                    program.emit(OpCode.STACK_WRITE, pAddr, argVal, "", line);
+                }
+            }
+            program.emit(OpCode.ADD, "P", String.valueOf(frameOffset), "P", line);
+            program.emit(OpCode.CALL, currentClass + "_" + methodName, "", "", line);
+            program.emit(OpCode.SUB, "P", String.valueOf(frameOffset), "P", line);
+            String tRet = program.newTemp();
+            program.emit(OpCode.STACK_READ, tNew, "", tRet, line);
+            return tRet;
+        }
         if (ctx.ID() != null) {
             String varName = ctx.ID().getText();
             int localOff = memory.getLocalOffset(currentRoutine, varName);
@@ -603,8 +1039,9 @@ public class ZetarianoC3DVisitor extends ZetarianoParserBaseVisitor<String> {
         if (ctx.STRING() != null) {
             String str = ctx.STRING().getText();
             str = str.substring(1, str.length() - 1);
+            str = unescapeString(str);
             String heapRef = program.newTemp();
-            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "String \"" + str + "\"");
+            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "String \"" + str.replace("\n", "\\n") + "\"");
             for (char c : str.toCharArray()) {
                 program.emit(OpCode.HEAP_WRITE, "H", String.valueOf((int) c), "", line);
                 String newH = program.newTemp();

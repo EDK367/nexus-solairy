@@ -137,14 +137,22 @@ public class VariableSection {
                 return DataType.ERROR;
             }
 
+            java.util.Map<String, Object> structVal = new HashMap<>();
             if (ctx.structLiteral() != null) {
                 StructInfo info = visitor.getSymbolTable().lookupStruct(structType);
                 if (info != null) {
                     structValidator.validateStructLiteral(info, ctx.structLiteral());
+                    if (ctx.structLiteral().expressionList() != null) {
+                        List<String> fieldNames = new ArrayList<>(info.getFields().keySet());
+                        List<YParser.ExpressionContext> exprs = ctx.structLiteral().expressionList().expression();
+                        for (int i = 0; i < fieldNames.size() && i < exprs.size(); i++) {
+                            structVal.put(fieldNames.get(i), expressionEval.evalExpression(exprs.get(i)));
+                        }
+                    }
                 }
             }
 
-            Symbol sym = new Symbol(name, structType, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.Y_LANG, new HashMap<String, Object>(), line, col);
+            Symbol sym = new Symbol(name, structType, visitor.getSymbolTable().getCurrentScopeKind(), LanguageType.Y_LANG, structVal, line, col);
             visitor.getSymbolTable().declare(sym);
             return DataType.VOID;
         }

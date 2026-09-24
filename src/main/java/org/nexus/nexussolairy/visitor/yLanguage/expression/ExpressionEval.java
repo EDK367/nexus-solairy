@@ -133,6 +133,9 @@ public class ExpressionEval {
                 } else if ("/".equals(op)) {
                     if (rn.doubleValue() == 0.0) return null;
                     left = isDec ? (ln.doubleValue() / rn.doubleValue()) : (ln.longValue() / rn.longValue());
+                } else if ("%".equals(op)) {
+                    if (rn.doubleValue() == 0.0) return null;
+                    left = isDec ? (ln.doubleValue() % rn.doubleValue()) : (ln.longValue() % rn.longValue());
                 }
             }
         }
@@ -169,6 +172,16 @@ public class ExpressionEval {
         if (ctx.literal() != null) return evalLiteral(ctx.literal());
         if (ctx.LPAREN() != null && ctx.expression() != null && ctx.ID() == null) {
             return evalExpression(ctx.expression());
+        }
+        if (ctx.ID() != null && ctx.LPAREN() != null) {
+            String name = ctx.ID().getText();
+            List<Object> args = new java.util.ArrayList<>();
+            if (ctx.argumentList() != null && ctx.argumentList().expression() != null) {
+                for (YParser.ExpressionContext argExpr : ctx.argumentList().expression()) {
+                    args.add(evalExpression(argExpr));
+                }
+            }
+            return visitor.executeFunctionCall(name, args);
         }
         if (ctx.target() != null) {
             String id = ctx.target().ID(0).getText();

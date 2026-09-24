@@ -48,6 +48,10 @@ public class ImportResolver {
     }
 
     public ImportResult resolveImport(String importPath, String baseDirectory) {
+        return resolveImport(importPath, baseDirectory, null);
+    }
+
+    public ImportResult resolveImport(String importPath, String baseDirectory, org.nexus.nexussolairy.model.semantic.SymbolTable preloadedTable) {
         String filePath = resolveFilePath(importPath, baseDirectory);
         if (filePath == null) return new ImportResult(List.of(), Map.of(), Map.of());
         String source;
@@ -59,20 +63,21 @@ public class ImportResolver {
         LanguageType language = LanguageType.fromFileName(filePath);
         if (language == LanguageType.UNKNOWN) return new ImportResult(List.of(), Map.of(), Map.of());
         return switch (language) {
-            case PIG_LATIN -> importFromPig(source);
-            case ZETARIANO -> importFromZetariano(source, filePath);
-            case Y_LANG -> importFromY(source);
+            case PIG_LATIN -> importFromPig(source, preloadedTable);
+            case ZETARIANO -> importFromZetariano(source, filePath, preloadedTable);
+            case Y_LANG -> importFromY(source, preloadedTable);
             default -> new ImportResult(List.of(), Map.of(), Map.of());
         };
     }
 
-    private ImportResult importFromY(String source) {
+    private ImportResult importFromY(String source, org.nexus.nexussolairy.model.semantic.SymbolTable preloadedTable) {
         try {
             YIdentationLexer lexer = new YIdentationLexer(CharStreams.fromString(source));
             lexer.removeErrorListeners();
             YParser parser = new YParser(new CommonTokenStream(lexer));
             parser.removeErrorListeners();
-            YVisitorImpl visitor = new YVisitorImpl();
+            YVisitorImpl visitor = new YVisitorImpl(preloadedTable, () -> "", null);
+            visitor.setImportContext(true);
             visitor.visit(parser.program());
             List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
             Map<String, StructInfo> structs = new HashMap<>(visitor.getSymbolTable().getStructRegistry());
@@ -83,13 +88,13 @@ public class ImportResolver {
         }
     }
 
-    private ImportResult importFromZetariano(String source, String filePath) {
+    private ImportResult importFromZetariano(String source, String filePath, org.nexus.nexussolairy.model.semantic.SymbolTable preloadedTable) {
         try {
             ZetarianoLexer lexer = new ZetarianoLexer(CharStreams.fromString(source));
             lexer.removeErrorListeners();
             ZetarianoParser parser = new ZetarianoParser(new CommonTokenStream(lexer));
             parser.removeErrorListeners();
-            ZetarianoVisitorImpl visitor = new ZetarianoVisitorImpl();
+            ZetarianoVisitorImpl visitor = new ZetarianoVisitorImpl(preloadedTable, () -> "", null);
             if (filePath != null) visitor.setFileName(filePath);
             visitor.visit(parser.program());
             List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
@@ -101,13 +106,13 @@ public class ImportResolver {
         }
     }
 
-    private ImportResult importFromPig(String source) {
+    private ImportResult importFromPig(String source, org.nexus.nexussolairy.model.semantic.SymbolTable preloadedTable) {
         try {
             PigLatinLexer lexer = new PigLatinLexer(CharStreams.fromString(source));
             lexer.removeErrorListeners();
             PigLatinParser parser = new PigLatinParser(new CommonTokenStream(lexer));
             parser.removeErrorListeners();
-            PigLatinVisitorImpl visitor = new PigLatinVisitorImpl();
+            PigLatinVisitorImpl visitor = new PigLatinVisitorImpl(preloadedTable, () -> "", null);
             visitor.visit(parser.program());
             List<Symbol> symbols = new ArrayList<>(visitor.getSymbolTable().getGlobalScope().getSymbols().values());
             return new ImportResult(symbols, Map.of(), Map.of(), visitor.getErrors());

@@ -77,18 +77,60 @@ public class CSourceCodeGenerator {
         sb.append("    fflush(stdout);\n");
         sb.append("}\n\n");
 
-        sb.append("double native_concat_string(double ptr1, double ptr2) {\n");
+        sb.append("double native_read_double() {\n");
+        sb.append("    double val = 0;\n");
+        sb.append("    int r = scanf(\"%lf\", &val);\n");
+        sb.append("    if (r != 1) {\n");
+        sb.append("        int ch;\n");
+        sb.append("        while ((ch = getchar()) != '\\n' && ch != EOF);\n");
+        sb.append("        return 0;\n");
+        sb.append("    }\n");
+        sb.append("    return val;\n");
+        sb.append("}\n\n");
+
+        sb.append("void native_append_str_to_heap(double ptr) {\n");
+        sb.append("    int idx = (int)ptr;\n");
+        sb.append("    int limit = (int)H;\n");
+        sb.append("    while (idx >= 0 && idx < limit && heap[idx] != -1) {\n");
+        sb.append("        if ((int)H < HEAP_SIZE) heap[(int)H++] = heap[idx++];\n");
+        sb.append("    }\n");
+        sb.append("}\n\n");
+
+        sb.append("void native_append_num_to_heap(double val) {\n");
+        sb.append("    char buf[64];\n");
+        sb.append("    if (val == (long)val) sprintf(buf, \"%ld\", (long)val);\n");
+        sb.append("    else sprintf(buf, \"%g\", val);\n");
+        sb.append("    for (int i = 0; buf[i]; i++) {\n");
+        sb.append("        if ((int)H < HEAP_SIZE) heap[(int)H++] = (double)buf[i];\n");
+        sb.append("    }\n");
+        sb.append("}\n\n");
+
+        sb.append("double native_concat_str_str(double ptr1, double ptr2) {\n");
         sb.append("    double start = H;\n");
-        sb.append("    int idx1 = (int)ptr1;\n");
-        sb.append("    while (idx1 >= 0 && idx1 < HEAP_SIZE && heap[idx1] != -1) {\n");
-        sb.append("        heap[(int)H++] = heap[idx1++];\n");
-        sb.append("    }\n");
-        sb.append("    int idx2 = (int)ptr2;\n");
-        sb.append("    while (idx2 >= 0 && idx2 < HEAP_SIZE && heap[idx2] != -1) {\n");
-        sb.append("        heap[(int)H++] = heap[idx2++];\n");
-        sb.append("    }\n");
-        sb.append("    heap[(int)H++] = -1;\n");
+        sb.append("    native_append_str_to_heap(ptr1);\n");
+        sb.append("    native_append_str_to_heap(ptr2);\n");
+        sb.append("    if ((int)H < HEAP_SIZE) heap[(int)H++] = -1;\n");
         sb.append("    return start;\n");
+        sb.append("}\n\n");
+
+        sb.append("double native_concat_str_num(double ptr1, double val2) {\n");
+        sb.append("    double start = H;\n");
+        sb.append("    native_append_str_to_heap(ptr1);\n");
+        sb.append("    native_append_num_to_heap(val2);\n");
+        sb.append("    if ((int)H < HEAP_SIZE) heap[(int)H++] = -1;\n");
+        sb.append("    return start;\n");
+        sb.append("}\n\n");
+
+        sb.append("double native_concat_num_str(double val1, double ptr2) {\n");
+        sb.append("    double start = H;\n");
+        sb.append("    native_append_num_to_heap(val1);\n");
+        sb.append("    native_append_str_to_heap(ptr2);\n");
+        sb.append("    if ((int)H < HEAP_SIZE) heap[(int)H++] = -1;\n");
+        sb.append("    return start;\n");
+        sb.append("}\n\n");
+
+        sb.append("double native_concat_string(double ptr1, double ptr2) {\n");
+        sb.append("    return native_concat_str_str(ptr1, ptr2);\n");
         sb.append("}\n\n");
 
         Set<String> definedFunctions = new HashSet<>();
@@ -149,6 +191,10 @@ public class CSourceCodeGenerator {
             sb.append("\nint main() {\n");
             if (definedFunctions.contains("principal")) {
                 sb.append("    principal();\n");
+            } else {
+                for (String fn : definedFunctions) {
+                    sb.append("    ").append(fn).append("();\n");
+                }
             }
             sb.append("    return 0;\n}\n");
         }
@@ -195,8 +241,17 @@ public class CSourceCodeGenerator {
             case HEAP_READ -> res.equals("0") ? "" : res + " = heap[(int)(" + arg1 + ")];";
             case PRINT -> "printf(\"%g\\n\", " + arg1 + "); fflush(stdout);";
             case PRINT_STR -> "native_print_string(" + arg1 + ");";
-            case CONCAT_STR -> res + " = native_concat_string(" + arg1 + ", " + arg2 + ");";
-            case READ -> "scanf(\"%lf\", &" + res + ");";
+            case CONCAT_STR -> {
+                String mode = q.getComment();
+                if ("str_num".equals(mode)) {
+                    yield res + " = native_concat_str_num(" + arg1 + ", " + arg2 + ");";
+                } else if ("num_str".equals(mode)) {
+                    yield res + " = native_concat_num_str(" + arg1 + ", " + arg2 + ");";
+                } else {
+                    yield res + " = native_concat_str_str(" + arg1 + ", " + arg2 + ");";
+                }
+            }
+            case READ -> res + " = native_read_double();";
             case PARAM -> "// param " + arg1;
             case CALL -> arg1 + "();";
             case RETURN -> inRoutine ? "return;" : "return 0;";

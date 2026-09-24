@@ -102,9 +102,34 @@ public class ProgramSection {
 
     public DataType visitFuncSection(YParser.FuncSectionContext ctx) {
         if (ctx == null) return DataType.VOID;
+
+        boolean hasMain = false;
+        for (YParser.FuncDefContext f : ctx.funcDef()) {
+            String fName = (f.voidFunction() != null) ? f.voidFunction().ID().getText() :
+                           (f.returnFunction() != null) ? f.returnFunction().ID().getText() : "";
+            if ("principal".equalsIgnoreCase(fName) || "main".equalsIgnoreCase(fName)) {
+                hasMain = true;
+                break;
+            }
+        }
+
         for (YParser.FuncDefContext f : ctx.funcDef()) {
             visitor.visit(f);
         }
+
+        YVisitorImpl yVisitor = (YVisitorImpl) visitor;
+        if (!hasMain && !yVisitor.isImportContext()) {
+            for (YParser.FuncDefContext f : ctx.funcDef()) {
+                String fName = (f.voidFunction() != null) ? f.voidFunction().ID().getText() :
+                               (f.returnFunction() != null) ? f.returnFunction().ID().getText() : "";
+                YParser.ParameterListContext pl = (f.voidFunction() != null) ? f.voidFunction().parameterList() :
+                                                  (f.returnFunction() != null) ? f.returnFunction().parameterList() : null;
+                if (pl == null || pl.parameter() == null || pl.parameter().isEmpty()) {
+                    yVisitor.executeFunctionCall(fName, java.util.Collections.emptyList());
+                }
+            }
+        }
+
         return DataType.VOID;
     }
 
@@ -150,7 +175,7 @@ public class ProgramSection {
         visitor.setCurrentFunctionReturnType(retType);
         visitor.setInsideFunction(true);
 
-        boolean isMain = "principal".equals(name);
+        boolean isMain = "principal".equalsIgnoreCase(name) || "main".equalsIgnoreCase(name);
         if (isMain) {
             visitor.setInsideMain(true);
         }

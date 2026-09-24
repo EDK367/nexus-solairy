@@ -83,12 +83,22 @@ statement : varDecl newLine+
           | returnStmt newLine+
           | breakStmt newLine+
           | continueStmt newLine+
+          | callStmt newLine+
           | structDef
           | newLine
           ;
 
+// llamada a funcion o metodo como sentencia
+callStmt : ID LPAREN argumentList? RPAREN
+         | target DOT ID LPAREN argumentList? RPAREN
+         ;
+
 // asignaciones
 assignStmt : target ASSIGN expression
+           | target ADD_ASSIGN expression
+           | target SUB_ASSIGN expression
+           | target MUL_ASSIGN expression
+           | target DIV_ASSIGN expression
            | target INC
            | target DEC
            ;
@@ -107,9 +117,9 @@ chainedTarget : ID ( (DOT ID) | (LBRACK expression RBRACK) )+
               ;
 
 // statement if
-ifStmt : SI LPAREN expression RPAREN ENTONCES newLine+ block
-        (SINO LPAREN expression RPAREN ENTONCES newLine+ block)*
-        (CONTRARIO newLine+ block)?
+ifStmt : SI LPAREN expression RPAREN ENTONCES COLON? newLine+ block
+        (SINO LPAREN expression RPAREN ENTONCES COLON? newLine+ block)*
+        (CONTRARIO COLON? newLine+ block)?
         ;
 
 // statement de switch
@@ -126,7 +136,7 @@ defaultBranch : SIEMPRE COLON newLine+ block
               ;
 
 // statement de bucle for
-forStmt : PARA LPAREN forInit? SEMI expression? SEMI forUpdate? RPAREN COLON newLine+ block
+forStmt : PARA LPAREN forInit? SEMI expression? SEMI forUpdate? RPAREN COLON? newLine+ block
         ;
 
 // inicializar el valor del for
@@ -138,10 +148,14 @@ forInit : type ID ASSIGN expression
 forUpdate : target INC
           | target DEC
           | target ASSIGN expression
+          | target ADD_ASSIGN expression
+          | target SUB_ASSIGN expression
+          | target MUL_ASSIGN expression
+          | target DIV_ASSIGN expression
           ;
 
 // statement de bucle while
-whileStmt : MIENTRAS LPAREN expression RPAREN HACER newLine+ block
+whileStmt : MIENTRAS LPAREN expression RPAREN HACER COLON? newLine+ block
           ;
 
 // statement de bucle do while
@@ -161,7 +175,7 @@ returnStmt : RETORNAR expression?
            ;
 
 // break para bucles
-breakStmt : ROMPER
+breakStmt : ROMPER SEMI?
           ;
 
 // continuar para bucles
@@ -198,7 +212,7 @@ relationalExpression : additiveExpression ((EQ | NEQ | LE | GE | LT | GT) additi
 additiveExpression : multiplicativeExpression ((PLUS | MINUS) multiplicativeExpression)*
                    ;
 
-multiplicativeExpression : unaryExpression ((MULT | DIV) unaryExpression)*
+multiplicativeExpression : unaryExpression ((MULT | DIV | MOD) unaryExpression)*
                          ;
 
 unaryExpression : NOT unaryExpression
@@ -215,9 +229,9 @@ postfixExpression : primaryExpression
 
 primaryExpression : literal
                   | LEER LPAREN RPAREN
-                  | target
                   | ID LPAREN argumentList? RPAREN
                   | LPAREN expression RPAREN
+                  | target
                   | structLiteral
                   ;
 

@@ -525,7 +525,8 @@ public class PigLatinC3DVisitor extends PigLatinParserBaseVisitor<String> {
                 java.util.List<org.nexus.nexussolairy.model.semantic.Symbol> ms = cs.resolveMethod(methodName);
                 if (ms != null && !ms.isEmpty()) {
                     org.nexus.nexussolairy.model.semantic.Symbol m = ms.get(0);
-                    return m.getType() == org.nexus.nexussolairy.model.enums.DataType.CADENA || m.getType() == org.nexus.nexussolairy.model.enums.DataType.TEXTUM;
+                    return m.getType() == org.nexus.nexussolairy.model.enums.DataType.CADENA || m.getType() == org.nexus.nexussolairy.model.enums.DataType.TEXTUM
+                        || (m.getSemanticType() != null && (m.getSemanticType().getDataType() == org.nexus.nexussolairy.model.enums.DataType.CADENA || m.getSemanticType().getDataType() == org.nexus.nexussolairy.model.enums.DataType.TEXTUM));
                 }
             }
         }
@@ -558,7 +559,17 @@ public class PigLatinC3DVisitor extends PigLatinParserBaseVisitor<String> {
         return null;
     }
 
+    private String unescapeString(String s) {
+        if (s == null) return "";
+        return s.replace("\\n", "\n")
+                .replace("\\t", "\t")
+                .replace("\\r", "\r")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\");
+    }
+
     private String createStringLiteral(String str, int line) {
+        str = unescapeString(str);
         String heapRef = program.newTemp();
         program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "String literal");
         for (char c : str.toCharArray()) {
@@ -889,8 +900,9 @@ public class PigLatinC3DVisitor extends PigLatinParserBaseVisitor<String> {
         if (ctx.STRING() != null) {
             String str = ctx.STRING().getText();
             str = str.substring(1, str.length() - 1);
+            str = unescapeString(str);
             String heapRef = program.newTemp();
-            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "Literal cadena \"" + str + "\"");
+            program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "Literal cadena \"" + str.replace("\n", "\\n") + "\"");
             for (char c : str.toCharArray()) {
                 program.emit(OpCode.HEAP_WRITE, "H", String.valueOf((int) c), "", line);
                 String newH = program.newTemp();

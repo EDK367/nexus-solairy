@@ -17,19 +17,19 @@ classBody : (fieldDecl | constructorDecl | methodDecl)*
           ;
 
 // tipo de declaraciones
-fieldDecl : type ID SEMI
-          | type ID ASSIGN expression SEMI
-          | type ID LBRACK RBRACK (ASSIGN expression)? SEMI
-          | type ID LBRACK RBRACK LBRACK RBRACK (ASSIGN expression)? SEMI // declaracion para matrices, posibles cambios
+fieldDecl : (PUBLIC | PRIVATE)? type ID SEMI
+          | (PUBLIC | PRIVATE)? type ID ASSIGN expression SEMI
+          | (PUBLIC | PRIVATE)? type ID LBRACK RBRACK (ASSIGN expression)? SEMI
+          | (PUBLIC | PRIVATE)? type ID LBRACK RBRACK LBRACK RBRACK (ASSIGN expression)? SEMI // declaracion para matrices, posibles cambios
           ;
 
 // declaracion del constructor
-constructorDecl : PUBLIC ID LPAREN paramList? RPAREN block
+constructorDecl : (PUBLIC | PRIVATE)? ID LPAREN paramList? RPAREN block
                 ;
 
 // declaracion de funciones con o sin retorno
-methodDecl : PUBLIC type ID LPAREN paramList? RPAREN block // con retorno
-           | PUBLIC VOID ID LPAREN paramList? RPAREN block // sin retorno
+methodDecl : (PUBLIC | PRIVATE)? type ID LPAREN paramList? RPAREN block // con retorno
+           | (PUBLIC | PRIVATE)? VOID ID LPAREN paramList? RPAREN block // sin retorno
            ;
 
 // parametros
