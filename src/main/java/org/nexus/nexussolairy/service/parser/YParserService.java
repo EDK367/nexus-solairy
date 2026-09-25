@@ -26,6 +26,7 @@ public class YParserService implements ParserService {
         lexer.removeErrorListeners();
 
         CommonTokenStream tokens = new CommonTokenStream(lexer);
+        tokens.fill();
 
         YParser parser = new YParser(tokens);
         SyntaxErrorListener errorListener = new SyntaxErrorListener();
@@ -35,6 +36,9 @@ public class YParserService implements ParserService {
         parser.program();
 
         errors.addAll(errorListener.getErrors());
+        if (lexer instanceof YIdentationLexer yLexer) {
+            errors.addAll(yLexer.getIndentationErrors());
+        }
 
         return errors;
 

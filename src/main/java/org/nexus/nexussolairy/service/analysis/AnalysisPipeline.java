@@ -63,11 +63,7 @@ public class AnalysisPipeline {
         }
         ResultLexer lexical = lexer.analyze(source);
         result.setLexicalResult(lexical);
-        if (!lexical.isValid()) {
-            result.setValid(false);
-            result.setMessage("Errores léxicos detectados.");
-            return result;
-        }
+
         ParserService parser = ParserFactory.create(language);
         if (parser == null) {
             result.setValid(false);
@@ -76,6 +72,13 @@ public class AnalysisPipeline {
         }
         List<SyntaxError> syntacticErrors = parser.analyze(source);
         result.setSyntacticErrors(syntacticErrors);
+
+        if (!lexical.isValid()) {
+            result.setValid(false);
+            result.setMessage("Errores léxicos detectados.");
+            return result;
+        }
+
         if (!syntacticErrors.isEmpty()) {
             result.setValid(false);
             result.setMessage("Errores sintácticos detectados.");
@@ -92,7 +95,7 @@ public class AnalysisPipeline {
             result.setMessage("Errores de importacion detectados.");
             return result;
         }
-        VisitorContext visitor = VisitorFactory.create(language, preloadedTable, inputProvider, livePrinter);
+        VisitorContext visitor = VisitorFactory.create(language, preloadedTable, inputProvider, null);
 
         if (visitor instanceof PigLatinVisitorImpl pigVisitor) {
             PigLatinLexer plLexer = new PigLatinLexer(CharStreams.fromString(source));

@@ -1098,11 +1098,26 @@ public class MainController implements Initializable {
             tokensList.setAll(result.getLexicalResult().tokens);
             lexerErrorsList.setAll(result.getLexicalResult().errors);
             setBadgeStyle(tokensBadge, result.getLexicalResult().isValid() ? "badge-success" : "badge-warning", "Tokens: " + result.getLexicalResult().tokens.size());
-            setBadgeStyle(errorsBadge, result.getLexicalResult().isValid() ? "badge-info" : "badge-danger", "Errores: " + result.getLexicalResult().errors.size());
         }
 
         syntaxErrorsList.setAll(result.getSyntacticErrors());
         semanticErrorsList.setAll(result.getSemanticErrors());
+
+        problemsList.clear();
+        if (result.getLexicalResult() != null) {
+            for (LexerError err : result.getLexicalResult().errors) {
+                problemsList.add(new ProblemViewModel("Error", targetName, err.getLine(), err.getColumn(), err.getMessage()));
+            }
+        }
+        for (SyntaxError err : result.getSyntacticErrors()) {
+            problemsList.add(new ProblemViewModel("Error", targetName, err.getLine(), err.getColumn(), err.getMessage()));
+        }
+        for (SemanticError err : result.getSemanticErrors()) {
+            problemsList.add(new ProblemViewModel("Error", targetName, err.getLine(), err.getColumn(), err.getMessage()));
+        }
+
+        int totalErrors = problemsList.size();
+        setBadgeStyle(errorsBadge, totalErrors == 0 ? "badge-info" : "badge-danger", "Errores: " + totalErrors);
 
         List<SymbolViewModel> symViewModels = new ArrayList<>();
         for (Symbol sym : result.getSymbols()) {
@@ -1119,7 +1134,7 @@ public class MainController implements Initializable {
         }
         symbolsList.setAll(symViewModels);
 
-        if (result.getC3dProgram() != null) {
+        if (result.isValid() && result.getC3dProgram() != null) {
             List<QuadrupleViewModel> quadVMs = new ArrayList<>();
             List<Quadruple> quads = result.getC3dProgram().getQuadruples();
             for (int i = 0; i < quads.size(); i++) {
@@ -1146,14 +1161,27 @@ public class MainController implements Initializable {
                 activeVM.setConsoleOutput(null);
                 updateVMDebuggerUI();
             }
-        }
 
-        if (result.isValid()) {
+            for (String line : result.getPrintOutput()) {
+                appendTerminalLog("PRINT", line);
+            }
             appendTerminalSuccess("Execution completed successfully");
             session.setStatus(ExecutionSession.SessionStatus.FINISHED);
             workspaceService.notifyUser("Execution successful: " + targetName);
         } else {
-            appendTerminalError(result.getMessage());
+            c3dCodeArea.replaceText("");
+            currentGeneratedCCode = "";
+            quadruplesList.clear();
+            stackList.clear();
+            heapList.clear();
+            activeVM = null;
+            activeMemoryLayout = null;
+            activeSymbols = Collections.emptyList();
+
+            for (ProblemViewModel prob : problemsList) {
+                appendTerminalError(String.format("[%s] Linea %d, Columna %d: %s", prob.getSeverity(), prob.getLine(), prob.getColumn(), prob.getMessage()));
+            }
+            appendTerminalError("Falló la compilación: " + result.getMessage() + ". No se generó código C3D ni C.");
             session.setStatus(ExecutionSession.SessionStatus.ERROR);
             workspaceService.notifyUser("Execution failed: " + targetName);
         }

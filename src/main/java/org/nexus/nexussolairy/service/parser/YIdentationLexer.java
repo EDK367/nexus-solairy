@@ -18,6 +18,11 @@ public class YIdentationLexer extends YLexer {
     // control para los () [] {}
     private int openedBrackets = 0;
     private int lastTokenType = Token.INVALID_TYPE;
+    private final java.util.List<org.nexus.nexussolairy.model.syntactic.SyntaxError> indentationErrors = new java.util.ArrayList<>();
+
+    public java.util.List<org.nexus.nexussolairy.model.syntactic.SyntaxError> getIndentationErrors() {
+        return indentationErrors;
+    }
 
     public YIdentationLexer(CharStream input) {
         super(input);
@@ -128,6 +133,9 @@ public class YIdentationLexer extends YLexer {
 
             if (indentStack.peek() != spaces) {
                 System.out.println("Error con la identacion" + current.getLine());
+                int errLine = current != null ? Math.max(1, current.getLine()) : 1;
+                int errCol = current != null ? Math.max(1, current.getCharPositionInLine() + 1) : 1;
+                indentationErrors.add(new org.nexus.nexussolairy.model.syntactic.SyntaxError("Error", errLine, errCol, "Error de identación: el nivel de desidentación (" + spaces + " espacios) no coincide con ningún nivel exterior."));
             }
         }
         tokenQueue.offer(current);
