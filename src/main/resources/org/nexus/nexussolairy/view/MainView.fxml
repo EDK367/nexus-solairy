@@ -43,7 +43,7 @@
                             <MenuItem text="Semantic Errors" onAction="#handleSelectSemantic"/>
                             <MenuItem text="Three Address Code (C3D)" onAction="#handleSelectC3D"/>
                             <MenuItem text="Quadruples" onAction="#handleSelectQuadruples"/>
-                            <MenuItem text="Parser Stack" onAction="#handleSelectStack"/>
+                            <MenuItem text="Stack Memory" onAction="#handleSelectStack"/>
                             <MenuItem text="Heap Memory" onAction="#handleSelectHeap"/>
                         </Menu>
 
@@ -305,51 +305,21 @@
                                     </Tab>
 
                                     <Tab fx:id="stackTab" text="STACK">
-                                        <VBox styleClass="parser-stack-view" spacing="6">
-                                            <padding>
-                                                <Insets top="8" right="8" bottom="8" left="8"/>
-                                            </padding>
-                                            <HBox alignment="CENTER_LEFT" spacing="10" styleClass="sra-nav-bar">
+                                        <VBox styleClass="stack-container">
+                                            <HBox alignment="CENTER_LEFT" spacing="8" styleClass="tab-toolbar">
                                                 <padding>
-                                                    <Insets top="6" right="12" bottom="6" left="12"/>
+                                                    <Insets top="4" right="10" bottom="4" left="10"/>
                                                 </padding>
-                                                <Button text="◀ Prev Step" styleClass="btn, btn-sm, sra-nav-btn" onAction="#handlePrevStackStep"/>
-                                                <Label fx:id="stackStepLabel" text="Step 0 of 0" styleClass="sra-step-label"/>
-                                                <Button text="Next Step ▶" styleClass="btn, btn-sm, sra-nav-btn" onAction="#handleNextStackStep"/>
-                                                <Button fx:id="stackAutoPlayBtn" text="▶ Auto Play" styleClass="btn, btn-sm, btn-accent-cyan" onAction="#handleToggleAutoPlay"/>
-                                                <Separator orientation="VERTICAL"/>
-                                                <Label fx:id="stackActionBadge" text="IDLE" styleClass="sra-action-badge"/>
+                                                <Label text="Stack Memory Inspector" styleClass="toolbar-section-title"/>
                                             </HBox>
-
-                                            <HBox spacing="12" VBox.vgrow="ALWAYS">
-                                                <VBox styleClass="sra-state-box" prefWidth="280" spacing="8">
-                                                    <padding>
-                                                        <Insets top="12" right="12" bottom="12" left="12"/>
-                                                    </padding>
-                                                    <Label text="Current Token:" styleClass="sra-section-title"/>
-                                                    <Label fx:id="stackCurrentTokenLabel" text="None" styleClass="sra-token-label"/>
-                                                    <Label text="Active Grammar Rule:" styleClass="sra-section-title"/>
-                                                    <Label fx:id="stackActiveRuleLabel" text="None" styleClass="sra-rule-label"/>
-                                                </VBox>
-
-                                                <VBox spacing="6" HBox.hgrow="ALWAYS">
-                                                    <Label text="Parser Visual Stack (Bottom -> Top):" styleClass="sra-section-title"/>
-                                                    <ScrollPane styleClass="sra-stack-scroll" fitToWidth="true" VBox.vgrow="ALWAYS">
-                                                        <content>
-                                                            <VBox fx:id="stackVisualContainer" styleClass="sra-stack-container" spacing="6">
-                                                                <padding>
-                                                                    <Insets top="10" right="10" bottom="10" left="10"/>
-                                                                </padding>
-                                                            </VBox>
-                                                        </content>
-                                                    </ScrollPane>
-                                                </VBox>
-
-                                                <VBox spacing="6" prefWidth="300">
-                                                    <Label text="Parser Action History:" styleClass="sra-section-title"/>
-                                                    <ListView fx:id="stackLogListView" styleClass="sra-log-list" VBox.vgrow="ALWAYS"/>
-                                                </VBox>
-                                            </HBox>
+                                            <TableView fx:id="stackTable" styleClass="table" VBox.vgrow="ALWAYS">
+                                                <columns>
+                                                    <TableColumn fx:id="colStackAddr" text="Address" prefWidth="120"/>
+                                                    <TableColumn fx:id="colStackType" text="Type" prefWidth="130"/>
+                                                    <TableColumn fx:id="colStackVal" text="Value" prefWidth="180"/>
+                                                    <TableColumn fx:id="colStackDetails" text="Object Details / References" prefWidth="360"/>
+                                                </columns>
+                                            </TableView>
                                         </VBox>
                                     </Tab>
 

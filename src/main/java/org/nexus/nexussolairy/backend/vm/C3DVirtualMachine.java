@@ -20,6 +20,8 @@ public class C3DVirtualMachine {
     private final Map<String, Integer> labelMap = new HashMap<>();
     private final Deque<Integer> returnStack = new ArrayDeque<>();
     private final Set<Integer> knownStringPtrs = new HashSet<>();
+    private final Set<Integer> writtenStackAddresses = new TreeSet<>();
+    private final Set<Integer> writtenHeapAddresses = new TreeSet<>();
 
     private List<Quadruple> quadruples = Collections.emptyList();
     private int pc = 0;
@@ -50,31 +52,50 @@ public class C3DVirtualMachine {
                     labelMap.put(q.getResult(), i);
                 }
             }
-            if (labelMap.containsKey("main_entry")) {
-                pc = labelMap.get("main_entry");
-            } else if (labelMap.containsKey("principal")) {
-                pc = labelMap.get("principal");
-            } else if (labelMap.containsKey("main")) {
-                pc = labelMap.get("main");
-            } else {
+            setEntryPoint();
+            this.halted = quadruples.isEmpty();
+        }
+    }
+
+    private void setEntryPoint() {
+        if (labelMap.containsKey("main_entry")) {
+            pc = labelMap.get("main_entry");
+        } else if (labelMap.containsKey("principal")) {
+            pc = labelMap.get("principal");
+        } else if (labelMap.containsKey("main")) {
+            pc = labelMap.get("main");
+        } else {
+            pc = 0;
+            for (Map.Entry<String, Integer> entry : labelMap.entrySet()) {
+                if (entry.getKey().equalsIgnoreCase("main") || entry.getKey().toLowerCase().endsWith("_main")) {
+                    pc = entry.getValue();
+                    break;
+                }
+            }
+            if (pc == 0 && !labelMap.isEmpty()) {
                 for (Map.Entry<String, Integer> entry : labelMap.entrySet()) {
-                    if (entry.getKey().equalsIgnoreCase("main") || entry.getKey().toLowerCase().endsWith("_main")) {
+                    String lbl = entry.getKey();
+                    if (!lbl.matches("L\\d+")) {
                         pc = entry.getValue();
                         break;
                     }
                 }
-                if (pc == 0 && !labelMap.isEmpty()) {
-                    for (Map.Entry<String, Integer> entry : labelMap.entrySet()) {
-                        String lbl = entry.getKey();
-                        if (!lbl.matches("L\\d+")) {
-                            pc = entry.getValue();
-                            break;
-                        }
-                    }
-                }
             }
-            this.halted = quadruples.isEmpty();
         }
+    }
+
+    public void restart() {
+        Arrays.fill(stack, 0);
+        Arrays.fill(heap, 0);
+        P = 0;
+        H = 0;
+        temporals.clear();
+        returnStack.clear();
+        knownStringPtrs.clear();
+        writtenStackAddresses.clear();
+        writtenHeapAddresses.clear();
+        setEntryPoint();
+        this.halted = quadruples.isEmpty();
     }
 
     public void reset() {
@@ -86,6 +107,8 @@ public class C3DVirtualMachine {
         labelMap.clear();
         returnStack.clear();
         knownStringPtrs.clear();
+        writtenStackAddresses.clear();
+        writtenHeapAddresses.clear();
         pc = 0;
         halted = true;
     }
@@ -120,6 +143,29 @@ public class C3DVirtualMachine {
 
     public List<Quadruple> getQuadruples() {
         return quadruples;
+    }
+
+    public Set<Integer> getWrittenStackAddresses() {
+        return Collections.unmodifiableSet(writtenStackAddresses);
+    }
+
+    public Set<Integer> getWrittenHeapAddresses() {
+        return Collections.unmodifiableSet(writtenHeapAddresses);
+    }
+
+    public Set<Integer> getKnownStringPtrs() {
+        return Collections.unmodifiableSet(knownStringPtrs);
+    }
+
+    public String readStringFromHeap(int ptr) {
+        if (ptr < 0 || ptr >= heap.length) return "";
+        StringBuilder sb = new StringBuilder();
+        int curr = ptr;
+        while (curr < heap.length && heap[curr] != -1 && heap[curr] != 0) {
+            sb.append((char) heap[curr]);
+            curr++;
+        }
+        return sb.toString();
     }
 
     public boolean step() {
@@ -160,7 +206,10 @@ public class C3DVirtualMachine {
             }
             case ASSIGN -> {
                 if ("H".equals(arg1)) {
-                    knownStringPtrs.add((int) H);
+                    String comm = q.getComment();
+                    if (comm == null || (!comm.startsWith("Base arreglo") && !comm.startsWith("Array") && !comm.startsWith("Struct") && !comm.startsWith("Instancia"))) {
+                        knownStringPtrs.add((int) H);
+                    }
                 }
                 setVal(res, evalVal(arg1));
             }
@@ -184,7 +233,10 @@ public class C3DVirtualMachine {
             case NOT -> setVal(res, evalVal(arg1) == 0 ? 1 : 0);
             case STACK_WRITE -> {
                 int addr = (int) evalVal(arg1);
-                if (addr >= 0 && addr < stack.length) stack[addr] = evalVal(arg2);
+                if (addr >= 0 && addr < stack.length) {
+                    stack[addr] = evalVal(arg2);
+                    writtenStackAddresses.add(addr);
+                }
             }
             case STACK_READ -> {
                 int addr = (int) evalVal(arg1);
@@ -193,7 +245,10 @@ public class C3DVirtualMachine {
             }
             case HEAP_WRITE -> {
                 int addr = (int) evalVal(arg1);
-                if (addr >= 0 && addr < heap.length) heap[addr] = evalVal(arg2);
+                if (addr >= 0 && addr < heap.length) {
+                    heap[addr] = evalVal(arg2);
+                    writtenHeapAddresses.add(addr);
+                }
             }
             case HEAP_READ -> {
                 int addr = (int) evalVal(arg1);
@@ -244,7 +299,10 @@ public class C3DVirtualMachine {
                     appendValToHeap(val1);
                     appendValToHeap(val2);
                 }
-                if ((int) H < heap.length) heap[(int) H++] = -1;
+                if ((int) H < heap.length) {
+                    writtenHeapAddresses.add((int) H);
+                    heap[(int) H++] = -1;
+                }
                 setVal(res, start);
             }
             case READ -> {
@@ -266,14 +324,20 @@ public class C3DVirtualMachine {
         int idx = (int) ptr;
         int limit = (int) H;
         while (idx >= 0 && idx < limit && idx < heap.length && heap[idx] != -1) {
-            if ((int) H < heap.length) heap[(int) H++] = heap[idx++];
+            if ((int) H < heap.length) {
+                writtenHeapAddresses.add((int) H);
+                heap[(int) H++] = heap[idx++];
+            }
         }
     }
 
     private void appendNumToHeap(double val) {
         String s = (val == (long) val) ? String.valueOf((long) val) : String.valueOf(val);
         for (char c : s.toCharArray()) {
-            if ((int) H < heap.length) heap[(int) H++] = c;
+            if ((int) H < heap.length) {
+                writtenHeapAddresses.add((int) H);
+                heap[(int) H++] = c;
+            }
         }
     }
 

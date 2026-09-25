@@ -115,4 +115,20 @@ public class MemoryLayout {
         Map<String, Integer> map = classFieldOffsets.get(className);
         return map != null ? map.getOrDefault(fieldName, -1) : -1;
     }
+
+    public Map<String, Integer> getGlobalVarOffsets() {
+        return java.util.Collections.unmodifiableMap(globalVarOffsets);
+    }
+
+    public Map<String, Map<String, Integer>> getLocalFrameOffsets() {
+        return java.util.Collections.unmodifiableMap(localFrameOffsets);
+    }
+
+    public Map<String, Map<String, Integer>> getStructFieldOffsets() {
+        return java.util.Collections.unmodifiableMap(structFieldOffsets);
+    }
+
+    public Map<String, Map<String, Integer>> getClassFieldOffsets() {
+        return java.util.Collections.unmodifiableMap(classFieldOffsets);
+    }
 }

@@ -199,6 +199,7 @@ public class AnalysisPipeline {
         }
 
         result.setC3dProgram(c3dProg);
+        result.setMemoryLayout(memory);
 
         C3DVirtualMachine vm = new C3DVirtualMachine();
         vm.loadProgram(c3dProg);
@@ -287,6 +288,15 @@ public class AnalysisPipeline {
         private List<String> printOutput = Collections.emptyList();
         private C3DProgram c3dProgram;
         private C3DVirtualMachine virtualMachine;
+        private MemoryLayout memoryLayout;
+
+        public MemoryLayout getMemoryLayout() {
+            return memoryLayout;
+        }
+
+        public void setMemoryLayout(MemoryLayout memoryLayout) {
+            this.memoryLayout = memoryLayout;
+        }
 
         public C3DProgram getC3dProgram() {
             return c3dProgram;

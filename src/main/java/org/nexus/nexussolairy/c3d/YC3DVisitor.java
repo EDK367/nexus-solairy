@@ -230,9 +230,7 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
                 memory.declareGlobal(varName) : memory.declareLocal(currentRoutine, varName);
 
         String valTemp = "0";
-        if (ctx.expression() != null && !ctx.expression().isEmpty()) {
-            valTemp = visit(ctx.expression(0));
-        } else if (ctx.arrayInit() != null && ctx.arrayInit().expressionList() != null) {
+        if (ctx.arrayInit() != null && ctx.arrayInit().expressionList() != null) {
             String heapRef = program.newTemp();
             program.emit(OpCode.ASSIGN, "H", "", heapRef, line, "Array " + varName);
             for (YParser.ExpressionContext e : ctx.arrayInit().expressionList().expression()) {
@@ -254,6 +252,8 @@ public class YC3DVisitor extends YParserBaseVisitor<String> {
                 program.emit(OpCode.ASSIGN, newH, "", "H", line);
             }
             valTemp = heapRef;
+        } else if (ctx.ASSIGN() != null && ctx.expression() != null && !ctx.expression().isEmpty()) {
+            valTemp = visit(ctx.expression(ctx.expression().size() - 1));
         }
 
         if (memory.isGlobal(varName, currentRoutine)) {

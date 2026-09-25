@@ -46,6 +46,10 @@ import org.nexus.nexussolairy.service.ui.ProjectService;
 import org.nexus.nexussolairy.service.ui.WorkspaceService;
 import org.nexus.nexussolairy.service.analysis.AnalysisPipeline;
 import org.nexus.nexussolairy.model.semantic.Symbol;
+import org.nexus.nexussolairy.c3d.MemoryLayout;
+import org.nexus.nexussolairy.model.c3d.OpCode;
+import org.nexus.nexussolairy.model.enums.DataType;
+import org.nexus.nexussolairy.model.enums.SymbolKind;
 import org.nexus.nexussolairy.utils.ResultLexer;
 import org.nexus.nexussolairy.view.*;
 import org.nexus.nexussolairy.view.utils.CommandItem;
@@ -168,13 +172,9 @@ public class MainController implements Initializable {
     @FXML
     private Tab stackTab;
     @FXML
-    private Label stackStepLabel, stackActionBadge, stackCurrentTokenLabel, stackActiveRuleLabel;
+    private TableView<StackViewModel> stackTable;
     @FXML
-    private Button stackAutoPlayBtn;
-    @FXML
-    private VBox stackVisualContainer;
-    @FXML
-    private ListView<String> stackLogListView;
+    private TableColumn<StackViewModel, String> colStackAddr, colStackType, colStackVal, colStackDetails;
 
     @FXML
     private Tab heapTab;
@@ -203,16 +203,15 @@ public class MainController implements Initializable {
     private final ObservableList<SyntaxError> syntaxErrorsList = FXCollections.observableArrayList();
     private final ObservableList<SemanticError> semanticErrorsList = FXCollections.observableArrayList();
     private final ObservableList<QuadrupleViewModel> quadruplesList = FXCollections.observableArrayList();
+    private final ObservableList<StackViewModel> stackList = FXCollections.observableArrayList();
     private final ObservableList<HeapViewModel> heapList = FXCollections.observableArrayList();
-
-    private final List<StackStepViewModel> stackSteps = new ArrayList<>();
-    private int currentStackStepIndex = 0;
-    private Timeline stackAutoPlayTimeline;
     private double astZoom = 1.0;
     private AstNodeViewModel selectedAstNode = null;
     private final AnalysisPipeline analysisPipeline = new AnalysisPipeline();
 
     private C3DVirtualMachine activeVM;
+    private MemoryLayout activeMemoryLayout;
+    private List<Symbol> activeSymbols = Collections.emptyList();
     private String currentGeneratedCCode = "";
     private final GCCCompilerService gccService = new GCCCompilerService();
 
@@ -519,12 +518,14 @@ public class MainController implements Initializable {
     }
 
     private void initStack() {
-        stackVisualContainer.getChildren().clear();
-        stackLogListView.getItems().clear();
-        stackStepLabel.setText("Step 0 of 0");
-        stackActionBadge.setText("IDLE");
-        stackCurrentTokenLabel.setText("None");
-        stackActiveRuleLabel.setText("None");
+        colStackAddr.setCellValueFactory(c -> c.getValue().addressProperty());
+        colStackType.setCellValueFactory(c -> c.getValue().typeProperty());
+        colStackVal.setCellValueFactory(c -> c.getValue().valueProperty());
+        colStackDetails.setCellValueFactory(c -> c.getValue().detailsProperty());
+
+        stackTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        stackTable.setItems(stackList);
+        stackTable.setPlaceholder(new Label("Stack memory empty. Run program to allocate runtime objects."));
     }
 
     private void initHeap() {
@@ -837,59 +838,6 @@ public class MainController implements Initializable {
         }
     }
 
-    private void updateStackStepView() {
-        if (stackSteps.isEmpty() || currentStackStepIndex < 0 || currentStackStepIndex >= stackSteps.size()) return;
-
-        StackStepViewModel current = stackSteps.get(currentStackStepIndex);
-        stackStepLabel.setText(String.format("Step %d of %d", current.getStepNumber(), stackSteps.size()));
-        stackActionBadge.setText(current.getActionName());
-
-        stackActionBadge.getStyleClass().removeAll("sra-shift", "sra-replace", "sra-accept");
-        if ("shift".equalsIgnoreCase(current.getActionType())) stackActionBadge.getStyleClass().add("sra-shift");
-        else if ("replace".equalsIgnoreCase(current.getActionType()))
-            stackActionBadge.getStyleClass().add("sra-replace");
-        else stackActionBadge.getStyleClass().add("sra-accept");
-
-        stackCurrentTokenLabel.setText(current.getCurrentToken());
-        stackActiveRuleLabel.setText(current.getCurrentRule());
-
-        stackVisualContainer.getChildren().clear();
-        for (int i = 0; i < current.getStackFrames().size(); i++) {
-            var frame = current.getStackFrames().get(i);
-            HBox frameBox = new HBox(10);
-            frameBox.setAlignment(Pos.CENTER_LEFT);
-            frameBox.setPadding(new Insets(6, 12, 6, 12));
-
-            String style = switch (frame.getType()) {
-                case "shift" -> "sra-stack-frame-shift";
-                case "rule" -> "sra-stack-frame-rule";
-                case "replace" -> "sra-stack-frame-replace";
-                case "accept" -> "sra-stack-frame-accept";
-                default -> "sra-stack-frame-token";
-            };
-            frameBox.getStyleClass().addAll("sra-column", style);
-
-            Label idx = new Label("#" + i);
-            idx.getStyleClass().add("sra-column-number");
-
-            Label val = new Label(frame.getLabel());
-            val.getStyleClass().add("sra-stack-label");
-            HBox.setHgrow(val, Priority.ALWAYS);
-
-            if (i == current.getStackFrames().size() - 1) {
-                Label top = new Label("TOP");
-                top.getStyleClass().add("sra-top-badge");
-                frameBox.getChildren().addAll(idx, val, top);
-            } else {
-                frameBox.getChildren().addAll(idx, val);
-            }
-
-            stackVisualContainer.getChildren().add(0, frameBox);
-        }
-
-        stackLogListView.getSelectionModel().select(currentStackStepIndex);
-        stackLogListView.scrollTo(currentStackStepIndex);
-    }
 
     private void promptNewFileInTree() {
         TreeItem<File> selected = projectTree.getSelectionModel().getSelectedItem();
@@ -1090,8 +1038,12 @@ public class MainController implements Initializable {
     @FXML
     public void handleRunProject() {
         var tab = workspaceService.getActiveTab();
-        String targetName = tab != null ? tab.getTitle() : "main.pig";
-        LanguageType lang = tab != null ? tab.getLanguageType() : LanguageType.PIG_LATIN;
+        if (tab != null) {
+            handleRunActiveFile();
+            return;
+        }
+        String targetName = "main.pig";
+        LanguageType lang = LanguageType.PIG_LATIN;
 
         bottomTabPane.getSelectionModel().select(terminalTab);
         var session = workspaceService.createNewExecutionSession(targetName, lang);
@@ -1180,10 +1132,19 @@ public class MainController implements Initializable {
             currentGeneratedCCode = cGen.generateC(result.getC3dProgram());
             c3dCodeArea.replaceText(currentGeneratedCCode);
 
+            activeMemoryLayout = result.getMemoryLayout();
+            activeSymbols = result.getSymbols();
             activeVM = result.getVirtualMachine();
             if (activeVM != null) {
-                activeVM.setConsoleOutput(line -> appendTerminalLog("PRINT", line));
-                stackStepLabel.setText("Step 0 of " + activeVM.getQuadruples().size());
+                activeVM.setConsoleOutput(null);
+                int maxSteps = 100000;
+                int steps = 0;
+                while (!activeVM.isHalted() && steps < maxSteps) {
+                    activeVM.step();
+                    steps++;
+                }
+                activeVM.setConsoleOutput(null);
+                updateVMDebuggerUI();
             }
         }
 
@@ -1308,7 +1269,7 @@ public class MainController implements Initializable {
     public void handlePrevStackStep() {
         if (activeVM != null && activeVM.getPc() > 0) {
             int targetPc = activeVM.getPc() - 1;
-            activeVM.reset();
+            activeVM.restart();
             while (activeVM.getPc() < targetPc && !activeVM.isHalted()) {
                 activeVM.step();
             }
@@ -1326,47 +1287,372 @@ public class MainController implements Initializable {
 
     @FXML
     public void handleToggleAutoPlay() {
-        if (stackAutoPlayTimeline != null && stackAutoPlayTimeline.getStatus() == Timeline.Status.RUNNING) {
-            stackAutoPlayTimeline.stop();
-            stackAutoPlayBtn.setText("▶ Auto Play");
-        } else if (activeVM != null && !activeVM.isHalted()) {
-            stackAutoPlayBtn.setText("⏸ Pause");
-            stackAutoPlayTimeline = new Timeline(new KeyFrame(Duration.millis(500), e -> {
-                if (activeVM != null && !activeVM.isHalted()) {
-                    handleNextStackStep();
-                } else {
-                    if (stackAutoPlayTimeline != null) stackAutoPlayTimeline.stop();
-                    stackAutoPlayBtn.setText("▶ Auto Play");
-                }
-            }));
-            stackAutoPlayTimeline.setCycleCount(Timeline.INDEFINITE);
-            stackAutoPlayTimeline.play();
+    }
+
+    private Symbol findSymbol(String name) {
+        if (name == null || name.isEmpty() || activeSymbols == null) return null;
+        for (Symbol s : activeSymbols) {
+            if (s.getName() != null && s.getName().equals(name)) {
+                return s;
+            }
         }
+        for (Symbol s : activeSymbols) {
+            if (s.getName() != null && s.getName().equalsIgnoreCase(name)) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    private String formatSymbolType(Symbol sym) {
+        if (sym == null) return "desconocido";
+        if (sym.getKind() == SymbolKind.ARRAY || sym.elementType != null || sym.arraySize != null) {
+            String elem = sym.elementType != null ? sym.elementType.getName() : "entero";
+            return "Puntero a Heap (" + elem + "[])";
+        }
+        if (sym.getType() == DataType.STRUCT || (sym.structTypeName != null && !sym.structTypeName.isEmpty())) {
+            return "Puntero a Heap (Estructura: " + (sym.structTypeName != null ? sym.structTypeName : sym.getName()) + ")";
+        }
+        if (sym.getType() == DataType.CLASS) {
+            return "Puntero a Heap (Objeto: " + (sym.structTypeName != null ? sym.structTypeName : sym.getName()) + ")";
+        }
+        if (sym.getType() == DataType.CADENA || sym.getType() == DataType.TEXTUM) {
+            return "Puntero a Heap (cadena)";
+        }
+        if (sym.getType() == DataType.ENTERO || sym.getType() == DataType.NUMERUS) {
+            return "entero";
+        }
+        if (sym.getType() == DataType.FLOTANTE || sym.getType() == DataType.DECIMALIS) {
+            return "flotante";
+        }
+        if (sym.getType() == DataType.BOOLEAN || sym.getType() == DataType.BOOL) {
+            return "booleano";
+        }
+        if (sym.getType() == DataType.CARACTER || sym.getType() == DataType.LITTERA) {
+            return "caracter";
+        }
+        return sym.getType() != null ? sym.getType().getName() : "desconocido";
+    }
+
+    private String escapeString(String str) {
+        if (str == null) return "";
+        String s = str.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+        if (s.length() > 30) {
+            return s.substring(0, 27) + "...";
+        }
+        return s;
+    }
+
+    private String formatNumber(double val) {
+        return (val == (long) val) ? String.valueOf((long) val) : String.valueOf(val);
     }
 
     private void updateVMDebuggerUI() {
-        if (activeVM == null) return;
-        int pc = activeVM.getPc();
-        int total = activeVM.getQuadruples().size();
-        stackStepLabel.setText("Step " + pc + " of " + total);
+        if (activeVM == null) {
+            stackList.clear();
+            heapList.clear();
+            return;
+        }
 
-        if (pc >= 0 && pc < quadruplesList.size()) {
-            quadruplesTable.getSelectionModel().select(pc);
-            quadruplesTable.scrollTo(pc);
+        double[] stack = activeVM.getStack();
+        double[] heap = activeVM.getHeap();
+        Set<Integer> writtenStack = activeVM.getWrittenStackAddresses();
+        Set<Integer> writtenHeap = activeVM.getWrittenHeapAddresses();
+        Set<Integer> knownStrings = activeVM.getKnownStringPtrs();
+
+        Map<Integer, String> stackVarNames = new HashMap<>();
+        Map<Integer, String> stackVarTypes = new HashMap<>();
+        Map<Integer, String> stackVarDetails = new HashMap<>();
+
+        if (activeMemoryLayout != null) {
+            for (Map.Entry<String, Integer> entry : activeMemoryLayout.getGlobalVarOffsets().entrySet()) {
+                String varName = entry.getKey();
+                int offset = entry.getValue();
+                stackVarNames.put(offset, varName);
+                Symbol sym = findSymbol(varName);
+                if (sym != null) {
+                    stackVarTypes.put(offset, formatSymbolType(sym));
+                    stackVarDetails.put(offset, "Variable global '" + varName + "' [" + sym.getType().name().toLowerCase() + "]");
+                } else {
+                    stackVarDetails.put(offset, "Variable global '" + varName + "'");
+                }
+            }
+
+            for (Map.Entry<String, Map<String, Integer>> routineEntry : activeMemoryLayout.getLocalFrameOffsets().entrySet()) {
+                String routine = routineEntry.getKey();
+                for (Map.Entry<String, Integer> localEntry : routineEntry.getValue().entrySet()) {
+                    String localName = localEntry.getKey();
+                    int localOff = localEntry.getValue();
+                    int addr = (activeVM.getP() > 0) ? ((int) activeVM.getP() + localOff) : localOff;
+                    if (!stackVarNames.containsKey(addr)) {
+                        stackVarNames.put(addr, localName);
+                        Symbol sym = findSymbol(localName);
+                        if (sym != null) {
+                            stackVarTypes.put(addr, formatSymbolType(sym));
+                            stackVarDetails.put(addr, "Variable local '" + localName + "' (" + routine + ") [" + sym.getType().name().toLowerCase() + "]");
+                        } else {
+                            stackVarDetails.put(addr, "Variable local '" + localName + "' (" + routine + ")");
+                        }
+                    }
+                }
+            }
+        }
+
+        for (Quadruple q : activeVM.getQuadruples()) {
+            if (q.getOp() == OpCode.STACK_WRITE) {
+                try {
+                    int addr = Integer.parseInt(q.getArg1());
+                    String comment = q.getComment();
+                    if (comment != null && !comment.isEmpty()) {
+                        if (comment.startsWith("Var global ")) {
+                            String vName = comment.substring("Var global ".length()).trim();
+                            stackVarNames.putIfAbsent(addr, vName);
+                            stackVarDetails.putIfAbsent(addr, "Variable global '" + vName + "'");
+                        } else if (comment.startsWith("Var local ")) {
+                            String vName = comment.substring("Var local ".length()).trim();
+                            stackVarNames.putIfAbsent(addr, vName);
+                            stackVarDetails.putIfAbsent(addr, "Variable local '" + vName + "'");
+                        } else if (comment.contains("this")) {
+                            stackVarNames.putIfAbsent(addr, "this");
+                            stackVarTypes.putIfAbsent(addr, "Puntero a Heap (Objeto 'this')");
+                            stackVarDetails.putIfAbsent(addr, "Referencia de instancia 'this'");
+                        }
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        Set<Integer> stackAddrs = new TreeSet<>(writtenStack);
+        if (activeMemoryLayout != null) {
+            stackAddrs.addAll(activeMemoryLayout.getGlobalVarOffsets().values());
+        }
+        for (int i = 0; i < Math.min(stack.length, 100); i++) {
+            if (stack[i] != 0) {
+                stackAddrs.add(i);
+            }
+        }
+        if (activeVM.getP() > 0) {
+            stackAddrs.add((int) activeVM.getP());
+        }
+
+        List<StackViewModel> stackVMs = new ArrayList<>();
+        for (int addr : stackAddrs) {
+            double val = (addr >= 0 && addr < stack.length) ? stack[addr] : 0;
+            String addrLabel = "stack[" + addr + "]";
+            if (addr == (int) activeVM.getP() && activeVM.getP() > 0) {
+                addrLabel += " [P]";
+            }
+
+            String type = stackVarTypes.get(addr);
+            String detail = stackVarDetails.get(addr);
+            String valStr;
+
+            int ptr = (int) val;
+            boolean pointsToHeap = (ptr >= 0 && ptr < heap.length && (writtenHeap.contains(ptr) || knownStrings.contains(ptr) || (activeVM.getH() > 0 && ptr < activeVM.getH())));
+
+            Symbol sym = stackVarNames.containsKey(addr) ? findSymbol(stackVarNames.get(addr)) : null;
+            boolean isStringSym = (sym != null && (sym.getType() == DataType.CADENA || sym.getType() == DataType.TEXTUM));
+            boolean isArraySym = (sym != null && (sym.getKind() == SymbolKind.ARRAY || sym.elementType != null || sym.arraySize != null));
+            boolean isStructOrClassSym = (sym != null && (sym.getType() == DataType.STRUCT || sym.getType() == DataType.CLASS || sym.structTypeName != null));
+
+            if (isStringSym || (pointsToHeap && knownStrings.contains(ptr))) {
+                String strContent = activeVM.readStringFromHeap(ptr);
+                type = "Puntero a Heap (cadena)";
+                valStr = "heap[" + ptr + "] -> \"" + escapeString(strContent) + "\"";
+                if (detail == null) {
+                    detail = "Referencia a cadena en heap[" + ptr + "]";
+                } else {
+                    detail += " -> Referencia en heap[" + ptr + "]";
+                }
+            } else if (isArraySym) {
+                type = (sym != null && sym.elementType != null) ? "Puntero a Heap (" + sym.elementType.getName() + "[])" : "Puntero a Heap (arreglo[])";
+                valStr = "heap[" + ptr + "]";
+                if (detail == null) {
+                    detail = "Referencia a arreglo en heap[" + ptr + "]";
+                } else {
+                    detail += " -> Base del arreglo en heap[" + ptr + "]";
+                }
+            } else if (isStructOrClassSym) {
+                String typeName = (sym != null && sym.structTypeName != null) ? sym.structTypeName : "Objeto";
+                type = "Puntero a Heap (" + typeName + ")";
+                valStr = "heap[" + ptr + "]";
+                if (detail == null) {
+                    detail = "Instancia de " + typeName + " en heap[" + ptr + "]";
+                } else {
+                    detail += " -> Instancia en heap[" + ptr + "]";
+                }
+            } else if (pointsToHeap && val >= 0 && val == (long) val && !knownStrings.isEmpty()) {
+                valStr = "heap[" + ptr + "]";
+                if (type == null) type = "Puntero a Heap";
+                if (detail == null) detail = "Referencia a memoria dinámica en heap[" + ptr + "]";
+            } else if (sym != null && (sym.getType() == DataType.BOOLEAN || sym.getType() == DataType.BOOL)) {
+                if (type == null) type = "booleano";
+                valStr = (val != 0) ? "verdadero (1)" : "falso (0)";
+            } else if (sym != null && (sym.getType() == DataType.CARACTER || sym.getType() == DataType.LITTERA)) {
+                if (type == null) type = "caracter";
+                valStr = "'" + (char) ((int) val) + "' (" + (int) val + ")";
+            } else {
+                if (type == null) {
+                    if (addr == (int) activeVM.getP() && activeVM.getP() > 0) {
+                        type = "Puntero P (Frame)";
+                    } else if (val == (long) val) {
+                        type = "entero";
+                    } else {
+                        type = "flotante";
+                    }
+                }
+                if (val == (long) val) {
+                    valStr = String.valueOf((long) val);
+                } else {
+                    valStr = String.valueOf(val);
+                }
+                if (detail == null) {
+                    if (addr == (int) activeVM.getP() && activeVM.getP() > 0) {
+                        detail = "Base del marco de ejecución actual (P = " + (int) activeVM.getP() + ")";
+                    } else {
+                        detail = "Celda de stack[" + addr + "]";
+                    }
+                }
+            }
+
+            stackVMs.add(new StackViewModel(addrLabel, type, valStr, detail));
+        }
+        stackList.setAll(stackVMs);
+
+        Map<Integer, String> heapTypes = new HashMap<>();
+        Map<Integer, String> heapValues = new HashMap<>();
+        Map<Integer, String> heapDetails = new HashMap<>();
+
+        Set<Integer> stringBases = new TreeSet<>(knownStrings);
+        for (Map.Entry<Integer, String> sEntry : stackVarNames.entrySet()) {
+            int sAddr = sEntry.getKey();
+            Symbol sym = findSymbol(sEntry.getValue());
+            if (sym != null && (sym.getType() == DataType.CADENA || sym.getType() == DataType.TEXTUM)) {
+                double val = (sAddr >= 0 && sAddr < stack.length) ? stack[sAddr] : -1;
+                if (val >= 0 && val < heap.length) {
+                    stringBases.add((int) val);
+                }
+            }
+        }
+
+        for (int sBase : stringBases) {
+            if (sBase < 0 || sBase >= heap.length) continue;
+            String fullStr = activeVM.readStringFromHeap(sBase);
+            int curr = sBase;
+            while (curr < heap.length && heap[curr] != -1 && heap[curr] != 0) {
+                char ch = (char) ((int) heap[curr]);
+                String chDisplay = switch (ch) {
+                    case '\n' -> "'\\n'";
+                    case '\r' -> "'\\r'";
+                    case '\t' -> "'\\t'";
+                    default -> "'" + ch + "'";
+                };
+                heapTypes.put(curr, "caracter (ASCII)");
+                heapValues.put(curr, chDisplay + " (" + (int) heap[curr] + ")");
+                heapDetails.put(curr, "Cadena \"" + escapeString(fullStr) + "\" [índice " + (curr - sBase) + ", base heap[" + sBase + "]]");
+                curr++;
+            }
+            if (curr < heap.length && heap[curr] == -1) {
+                heapTypes.put(curr, "fin de cadena (-1)");
+                heapValues.put(curr, "-1 (EOF/NULL)");
+                heapDetails.put(curr, "Terminador de cadena \"" + escapeString(fullStr) + "\" (base heap[" + sBase + "])");
+            }
+        }
+
+        for (Map.Entry<Integer, String> sEntry : stackVarNames.entrySet()) {
+            int sAddr = sEntry.getKey();
+            String vName = sEntry.getValue();
+            Symbol sym = findSymbol(vName);
+            double sVal = (sAddr >= 0 && sAddr < stack.length) ? stack[sAddr] : 0;
+            int base = (int) sVal;
+            if (base < 0 || base >= heap.length) continue;
+
+            if (sym != null && (sym.getType() == DataType.STRUCT || sym.getType() == DataType.CLASS || sym.structTypeName != null)) {
+                String typeName = sym.structTypeName != null ? sym.structTypeName : sym.getName();
+                Map<String, Integer> fieldMap = null;
+                if (activeMemoryLayout != null) {
+                    fieldMap = activeMemoryLayout.getClassFieldOffsets().get(typeName);
+                    if (fieldMap == null) {
+                        fieldMap = activeMemoryLayout.getStructFieldOffsets().get(typeName);
+                    }
+                }
+                if (fieldMap != null) {
+                    for (Map.Entry<String, Integer> fEntry : fieldMap.entrySet()) {
+                        String fieldName = fEntry.getKey();
+                        int fOff = fEntry.getValue();
+                        int fAddr = base + fOff;
+                        if (fAddr < heap.length && !heapTypes.containsKey(fAddr)) {
+                            double fVal = heap[fAddr];
+                            String fValStr;
+                            if (knownStrings.contains((int) fVal) || (fVal >= 0 && fVal < heap.length && heapTypes.containsKey((int) fVal) && heapTypes.get((int) fVal).contains("caracter"))) {
+                                fValStr = "heap[" + (int) fVal + "] -> \"" + escapeString(activeVM.readStringFromHeap((int) fVal)) + "\"";
+                            } else {
+                                fValStr = formatNumber(fVal);
+                            }
+                            heapTypes.put(fAddr, "campo: " + typeName + "." + fieldName);
+                            heapValues.put(fAddr, fValStr);
+                            heapDetails.put(fAddr, "Instancia " + typeName + " en heap[" + base + "] - Campo '" + fieldName + "'");
+                        }
+                    }
+                }
+            } else if (sym != null && (sym.getKind() == SymbolKind.ARRAY || sym.elementType != null || sym.arraySize != null)) {
+                if (heap[base] > 0 && heap[base] < 1000) {
+                    int n = (int) heap[base];
+                    heapTypes.put(base, "tamaño arreglo");
+                    heapValues.put(base, n + " elementos");
+                    heapDetails.put(base, "Arreglo '" + vName + "' - Capacidad asignada");
+                    for (int i = 0; i < n; i++) {
+                        int elemAddr = base + 1 + i;
+                        if (elemAddr < heap.length && !heapTypes.containsKey(elemAddr)) {
+                            heapTypes.put(elemAddr, "elemento arreglo [" + i + "]");
+                            heapValues.put(elemAddr, formatNumber(heap[elemAddr]));
+                            heapDetails.put(elemAddr, "Arreglo '" + vName + "'[" + i + "] (base heap[" + base + "])");
+                        }
+                    }
+                } else {
+                    int n = (sym.arraySize != null && sym.arraySize > 0) ? sym.arraySize : 5;
+                    for (int i = 0; i < n; i++) {
+                        int elemAddr = base + i;
+                        if (elemAddr < heap.length && !heapTypes.containsKey(elemAddr)) {
+                            heapTypes.put(elemAddr, "elemento arreglo [" + i + "]");
+                            heapValues.put(elemAddr, formatNumber(heap[elemAddr]));
+                            heapDetails.put(elemAddr, "Arreglo '" + vName + "'[" + i + "] (base heap[" + base + "])");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (activeVM.getH() > 0) {
+            int hAddr = (int) activeVM.getH();
+            if (!heapTypes.containsKey(hAddr)) {
+                heapTypes.put(hAddr, "Puntero Heap (H)");
+                heapValues.put(hAddr, String.valueOf(hAddr));
+                heapDetails.put(hAddr, "Próxima posición libre en memoria dinámica (H = " + hAddr + ")");
+            }
+        }
+
+        for (int wAddr : writtenHeap) {
+            if (!heapTypes.containsKey(wAddr)) {
+                double val = heap[wAddr];
+                heapTypes.put(wAddr, "Celda Heap");
+                heapValues.put(wAddr, formatNumber(val));
+                heapDetails.put(wAddr, "Memoria dinámica en heap[" + wAddr + "]");
+            }
+        }
+
+        Set<Integer> allHeapAddrs = new TreeSet<>(writtenHeap);
+        allHeapAddrs.addAll(heapTypes.keySet());
+        if (activeVM.getH() > 0) {
+            allHeapAddrs.add((int) activeVM.getH());
         }
 
         List<HeapViewModel> heapVMs = new ArrayList<>();
-        double[] heap = activeVM.getHeap();
-        int hLimit = (int) Math.min(activeVM.getH() + 10, heap.length);
-        for (int i = 0; i < hLimit; i++) {
-            if (heap[i] != 0) {
-                heapVMs.add(new HeapViewModel(
-                        "heap[" + i + "]",
-                        "double",
-                        String.valueOf(heap[i]),
-                        "Celda de memoria Heap"
-                ));
-            }
+        for (int addr : allHeapAddrs) {
+            String t = heapTypes.getOrDefault(addr, "Celda Heap");
+            String v = heapValues.getOrDefault(addr, formatNumber(heap[addr]));
+            String d = heapDetails.getOrDefault(addr, "Memoria dinámica en heap[" + addr + "]");
+            heapVMs.add(new HeapViewModel("heap[" + addr + "]", t, v, d));
         }
         heapList.setAll(heapVMs);
     }
@@ -1416,7 +1702,7 @@ public class MainController implements Initializable {
         list.add(new CommandItem("Show Lexer Error Tokens", "View", "", this::handleSelectLexerError));
         list.add(new CommandItem("Show Three Address Code (C3D)", "View", "", this::handleSelectC3D));
         list.add(new CommandItem("Show Quadruples", "View", "", this::handleSelectQuadruples));
-        list.add(new CommandItem("Show Parser Stack", "View", "", this::handleSelectStack));
+        list.add(new CommandItem("Show Stack Memory", "View", "", this::handleSelectStack));
         list.add(new CommandItem("Show Heap Memory", "View", "", this::handleSelectHeap));
         list.add(new CommandItem("Toggle Project Explorer", "View", "", this::handleToggleExplorer));
         list.add(new CommandItem("Show Welcome Screen", "Help", "", this::handleShowWelcome));
